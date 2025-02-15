@@ -140,12 +140,81 @@ The application is set up to run under Apache with mod_wsgi. After installation:
 
 - Application files are in `/var/www/sigma-calculator`
 - Apache logs are in `/var/log/apache2/sigma-calculator-{error,access}.log`
-- To update the application:
-  ```bash
-  cd /var/www/sigma-calculator
-  sudo git pull
-  sudo systemctl restart apache2
-  ```
+
+### Updating the Application
+
+There are two ways to update the application:
+
+#### Option 1: Using the Update Script (Recommended)
+
+The update script provides an automated way to update the application with built-in safety features:
+- Creates a backup before updating
+- Checks Apache status after update
+- Monitors for errors
+- Provides rollback instructions
+
+To use the update script:
+
+1. Make the script executable:
+   ```bash
+   sudo chmod +x /var/www/sigma-calculator/update.sh
+   ```
+
+2. Run the script:
+   ```bash
+   sudo /var/www/sigma-calculator/update.sh
+   ```
+
+The script will:
+- Create a backup of the current installation
+- Pull the latest changes from Git
+- Update file permissions
+- Restart Apache
+- Check for any errors
+- Provide rollback instructions if needed
+
+#### Option 2: Manual Update
+
+If you prefer to update manually, follow these steps:
+
+1. Navigate to the application directory:
+   ```bash
+   cd /var/www/sigma-calculator
+   ```
+
+2. Pull the latest changes:
+   ```bash
+   sudo git pull origin master
+   ```
+
+3. Update file permissions:
+   ```bash
+   sudo chown -R www-data:www-data /var/www/sigma-calculator
+   sudo chmod -R 755 /var/www/sigma-calculator
+   ```
+
+4. Restart Apache to apply changes:
+   ```bash
+   sudo systemctl restart apache2
+   ```
+
+5. Check Apache status (optional):
+   ```bash
+   sudo systemctl status apache2
+   ```
+
+6. View logs for any errors (optional):
+   ```bash
+   sudo tail -f /var/log/apache2/sigma-calculator-error.log
+   ```
+
+Note: Using `wget` to update individual files is not recommended as it:
+- Doesn't maintain proper version control
+- May miss dependencies
+- Could break file permissions
+- Doesn't track changes properly
+
+Always use Git to update the entire application to ensure consistency.
 
 ## Usage
 
