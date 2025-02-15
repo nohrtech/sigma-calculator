@@ -364,20 +364,36 @@ class NohrTechSigmaCalculator:
             return None
             
         comparison = {
-            'file1': self.filename,
-            'file2': other_calculator.filename,
+            'file1': {},
+            'file2': {},
             'differences': {
                 'horizontal': {},
                 'vertical': {},
                 'E': {},
                 'N': {},
                 'U': {}
-            },
-            'summary': {}
+            }
         }
         
-        # Calculate differences for each component
+        # Store individual file results
         for comp in ['horizontal', 'vertical', 'E', 'N', 'U']:
+            # File 1 results
+            comparison['file1'][comp] = {
+                'mean': results1['summary'][comp]['mean'],
+                'rms': results1['summary'][comp]['rms'],
+                'max': results1['summary'][comp]['max'],
+                'std': results1['summary'][comp]['std']
+            }
+            
+            # File 2 results
+            comparison['file2'][comp] = {
+                'mean': results2['summary'][comp]['mean'],
+                'rms': results2['summary'][comp]['rms'],
+                'max': results2['summary'][comp]['max'],
+                'std': results2['summary'][comp]['std']
+            }
+            
+            # Calculate differences
             stats1 = results1['summary'][comp]
             stats2 = results2['summary'][comp]
             
@@ -406,8 +422,8 @@ class NohrTechSigmaCalculator:
             
         print("\nComparison Results")
         print("=" * 80)
-        print(f"File 1: {comparison['file1']}")
-        print(f"File 2: {comparison['file2']}")
+        print(f"File 1: {self.filename}")
+        print(f"File 2: {comparison['file2']['horizontal']['mean']}")
         print("-" * 80)
         
         # Print differences for each component

@@ -173,6 +173,9 @@ def compare_files():
         # Get comparison results
         comparison_results = calculator1.compare_with(calculator2)
         
+        if comparison_results is None:
+            return jsonify({'error': 'Error processing files'}), 500
+        
         # Add file names to results
         comparison_results['file1_name'] = file1.filename
         comparison_results['file2_name'] = file2.filename
@@ -192,6 +195,9 @@ def compare_files():
         })
         
     except Exception as e:
+        # Clean up temporary files if they exist
+        if 'temp_dir' in locals():
+            shutil.rmtree(temp_dir)
         return jsonify({'error': str(e)}), 500
 
 @app.route('/view_comparison/<result_id>')
