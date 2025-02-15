@@ -19,6 +19,7 @@ import tempfile
 import uuid
 import logging
 from datetime import datetime
+import shutil
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -31,6 +32,7 @@ app.config['SECRET_KEY'] = 'nohrtech-sigma-calculator-secret-key'  # Static secr
 app.config['SESSION_TYPE'] = 'filesystem'  # Store sessions in filesystem
 app.config['SESSION_FILE_DIR'] = os.path.join(tempfile.gettempdir(), 'flask_session')
 app.config['MAX_RESULTS_PER_SESSION'] = 10  # Maximum number of results to store per session
+app.comparison_results = {}
 
 # Ensure the session directory exists
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
@@ -143,6 +145,82 @@ def calculate():
     except Exception as e:
         logger.error(f"Error processing file: {str(e)}")
         return jsonify({'error': f'Error processing file: {str(e)}'}), 500
+
+@app.route('/compare', methods=['POST'])
+def compare_files():
+    if 'file1' not in request.files or 'file2' not in request.files:
+        return jsonify({'error': 'Please upload two files'}), 400
+    
+    file1 = request.files['file1']
+    file2 = request.files['file2']
+    
+    if file1.filename == '' or file2.filename == '':
+        return jsonify({'error': 'Please select two files'}), 400
+    
+    temp_dir = None
+    try:
+        # Save files temporarily
+        temp_dir = tempfile.mkdtemp()
+        file1_path = os.path.join(temp_dir, secure_filename(file1.filename))
+        file2_path = os.path.join(temp_dir, secure_filename(file2.filename))
+        
+        app.logger.info(f"Processing files for comparison:")
+        app.logger.info(f"File 1: {file1.filename} -> {file1_path}")
+        app.logger.info(f"File 2: {file2.filename} -> {file2_path}")
+        
+        file1.save(file1_path)
+        file2.save(file2_path)
+        
+        # Process files
+        calculator1 = NohrTechSigmaCalculator(file1_path)
+        calculator2 = NohrTechSigmaCalculator(file2_path)
+        
+        # Get comparison results
+        comparison_results = calculator1.compare_with(calculator2)
+        
+        if comparison_results is None:
+            app.logger.error("Failed to generate comparison results")
+            return jsonify({'error': 'Failed to process files. Please check if both files are valid GNSS data files.'}), 500
+        
+        # Add file names to results
+        comparison_results['file1_name'] = file1.filename
+        comparison_results['file2_name'] = file2.filename
+        
+        # Generate a unique ID for the results
+        result_id = str(uuid.uuid4())
+        app.comparison_results[result_id] = comparison_results
+        
+        app.logger.info("Successfully generated comparison results")
+        
+        return jsonify({
+            'comparison': comparison_results,
+            'result_id': result_id,
+            'file1_name': file1.filename,
+            'file2_name': file2.filename
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error in compare_files: {str(e)}")
+        import traceback
+        app.logger.error(traceback.format_exc())
+        return jsonify({'error': f'Error processing files: {str(e)}'}), 500
+        
+    finally:
+        # Clean up temporary files
+        if temp_dir and os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir)
+                app.logger.info(f"Cleaned up temporary directory: {temp_dir}")
+            except Exception as e:
+                app.logger.error(f"Error cleaning up temporary directory: {str(e)}")
+
+@app.route('/view_comparison/<result_id>')
+def view_comparison(result_id):
+    if result_id not in app.comparison_results:
+        return "Comparison results not found", 404
+    
+    comparison_results = app.comparison_results[result_id]
+    return render_template('comparison.html', comparison=comparison_results)
 
 @app.route('/generate_pdf', methods=['POST'])
 def generate_pdf_route():

@@ -355,6 +355,114 @@ class NohrTechSigmaCalculator:
                 stats['rms']
             ))
 
+    def compare_with(self, other_calculator):
+        """Compare this calculator's results with another calculator's results."""
+        try:
+            # First read both files
+            self.read_file()
+            other_calculator.read_file()
+            
+            # Calculate sigma values for both files
+            results1 = self.calculate_sigma()
+            results2 = other_calculator.calculate_sigma()
+            
+            print(f"Processing file 1: {self.filename}")
+            print(f"Processing file 2: {other_calculator.filename}")
+            
+            if results1 is None:
+                print(f"Error: Could not calculate sigma values for file 1: {self.filename}")
+                return None
+                
+            if results2 is None:
+                print(f"Error: Could not calculate sigma values for file 2: {other_calculator.filename}")
+                return None
+                
+            comparison = {
+                'file1': {},
+                'file2': {},
+                'differences': {
+                    'horizontal': {},
+                    'vertical': {},
+                    'E': {},
+                    'N': {},
+                    'U': {}
+                }
+            }
+            
+            # Store individual file results
+            for comp in ['horizontal', 'vertical', 'E', 'N', 'U']:
+                # File 1 results
+                comparison['file1'][comp] = {
+                    'mean': results1['summary'][comp]['mean'],
+                    'rms': results1['summary'][comp]['rms'],
+                    'max': results1['summary'][comp]['max'],
+                    'std': results1['summary'][comp]['std']
+                }
+                
+                # File 2 results
+                comparison['file2'][comp] = {
+                    'mean': results2['summary'][comp]['mean'],
+                    'rms': results2['summary'][comp]['rms'],
+                    'max': results2['summary'][comp]['max'],
+                    'std': results2['summary'][comp]['std']
+                }
+                
+                # Calculate differences
+                stats1 = results1['summary'][comp]
+                stats2 = results2['summary'][comp]
+                
+                comparison['differences'][comp] = {
+                    'mean_diff': stats2['mean'] - stats1['mean'],
+                    'rms_diff': stats2['rms'] - stats1['rms'],
+                    'max_diff': stats2['max'] - stats1['max'],
+                    'std_diff': stats2['std'] - stats1['std']
+                }
+                
+                # Calculate percentage differences
+                comparison['differences'][comp]['mean_diff_pct'] = (
+                    (stats2['mean'] - stats1['mean']) / stats1['mean'] * 100 if stats1['mean'] != 0 else float('inf')
+                )
+                comparison['differences'][comp]['rms_diff_pct'] = (
+                    (stats2['rms'] - stats1['rms']) / stats1['rms'] * 100 if stats1['rms'] != 0 else float('inf')
+                )
+            
+            return comparison
+            
+        except Exception as e:
+            print(f"Error in compare_with: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def print_comparison(self, comparison):
+        """Print the comparison results."""
+        if comparison is None:
+            print("No comparison results available")
+            return
+            
+        print("\nComparison Results")
+        print("=" * 80)
+        print(f"File 1: {self.filename}")
+        print(f"File 2: {comparison['file2']['horizontal']['mean']}")
+        print("-" * 80)
+        
+        # Print differences for each component
+        headers = ['Component', 'Mean Diff', 'RMS Diff', 'Max Diff', 'Std Diff', 'Mean Diff %', 'RMS Diff %']
+        print("{:<12} {:>10} {:>10} {:>10} {:>10} {:>12} {:>12}".format(*headers))
+        print("-" * 80)
+        
+        for comp in ['horizontal', 'vertical', 'E', 'N', 'U']:
+            diff = comparison['differences'][comp]
+            print("{:<12} {:10.3f} {:10.3f} {:10.3f} {:10.3f} {:11.2f}% {:11.2f}%".format(
+                comp.capitalize(),
+                diff['mean_diff'],
+                diff['rms_diff'],
+                diff['max_diff'],
+                diff['std_diff'],
+                diff['mean_diff_pct'],
+                diff['rms_diff_pct']
+            ))
+
 def main():
     """Main function to run the sigma calculator."""
     parser = argparse.ArgumentParser(description='Calculate receiver position sigma values from RINEX, SBF, or XYZ files')

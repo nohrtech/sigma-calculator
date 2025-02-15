@@ -18,6 +18,10 @@ A professional GNSS position accuracy analysis tool by NohrTech.
   - Statistical analysis across all epochs
 - Open results in a new tab for better viewing and comparison
 - Process multiple files in separate tabs
+- Compare sigma results between two files:
+  - View individual statistics for each file
+  - Calculate absolute and percentage differences
+  - Color-coded comparison results for easy interpretation
 
 ## Supported File Formats
 
@@ -159,7 +163,16 @@ The application is set up to run under Apache with mod_wsgi. After installation:
    - Summary statistics for all components (Horizontal, Vertical, East, North, Up)
    - Process multiple files in succession, each opening in its own tab when the checkbox is selected
 
-4. Download a PDF report with the complete analysis
+4. Compare two files:
+   - Upload two files in the Compare tab
+   - View individual statistics for each file
+   - See color-coded differences between files:
+     - Green: < 5% difference
+     - Yellow: 5-10% difference
+     - Red: > 10% difference
+   - Optionally open comparison results in a new tab
+
+5. Download a PDF report with the complete analysis
 
 ## Notes
 - The application maintains the 10 most recent calculation results in memory
