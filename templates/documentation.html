@@ -111,12 +111,27 @@
 
                             <h6>Vertical Sigma</h6>
                             <p>
-                                The vertical sigma is taken directly from the Up component value for each epoch. This provides:
+                                The vertical sigma calculation varies by file type:
                             </p>
                             <ul>
-                                <li>Individual vertical accuracy values per epoch</li>
-                                <li>True representation of vertical precision over time</li>
-                                <li>Ability to track vertical accuracy changes throughout the observation period</li>
+                                <li><strong>SBF Files:</strong>
+                                    <ul>
+                                        <li>Uses the direct <code>sigma_up</code> value from PVTGeodetic blocks</li>
+                                        <li>Values are converted from meters to millimeters for consistency</li>
+                                    </ul>
+                                </li>
+                                <li><strong>XYZ/LLH Files:</strong>
+                                    <ul>
+                                        <li>Uses the direct sU (Up standard deviation) value from each epoch</li>
+                                        <li>Values are taken directly from the receiver's output</li>
+                                    </ul>
+                                </li>
+                                <li><strong>RINEX Files:</strong>
+                                    <ul>
+                                        <li>Set to 1.5 times the nominal horizontal accuracy</li>
+                                        <li>This accounts for typically lower vertical precision in GNSS measurements</li>
+                                    </ul>
+                                </li>
                             </ul>
 
                             <h6>Summary Statistics</h6>

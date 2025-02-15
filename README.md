@@ -270,7 +270,10 @@ The horizontal sigma is calculated for each epoch as the Root Mean Square (RMS) 
 ```
 
 #### Vertical Sigma
-The vertical sigma is calculated as the direct Up component value per epoch.
+The vertical sigma calculation depends on the file type:
+- For SBF files: Direct `sigma_up` value from PVTGeodetic blocks
+- For XYZ/LLH files: Direct sU (Up standard deviation) value from each epoch
+- For RINEX files: Set to 1.5 times the nominal horizontal accuracy
 
 ## License
 
