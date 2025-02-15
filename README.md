@@ -41,7 +41,7 @@ A professional GNSS position accuracy analysis tool by NohrTech.
 
 1. Run this single command:
    ```bash
-   wget -O- https://raw.githubusercontent.com/nohrtech/sigma-calculator/main/install.sh | sudo bash
+   wget -O- https://raw.githubusercontent.com/nohrtech/sigma-calculator/master/install.sh | sudo bash
    ```
 
 2. The application will be automatically installed and configured with Apache. Once installation is complete, you can access it at:
@@ -145,7 +145,7 @@ A professional GNSS position accuracy analysis tool by NohrTech.
    git remote add origin https://github.com/nohrtech/sigma-calculator.git
    
    # Push to GitHub
-   git push -u origin main
+   git push -u origin master
    ```
 
 ### Repository Structure
