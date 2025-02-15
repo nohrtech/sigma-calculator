@@ -10,17 +10,22 @@ echo "Updating system packages..."
 sudo apt-get update
 sudo apt-get upgrade -y
 
-# Install required system dependencies
-echo "Installing system dependencies..."
+# Install Apache and development packages first
+echo "Installing Apache and development packages..."
+sudo apt-get install -y \
+    apache2 \
+    apache2-dev \
+    apache2-utils \
+    build-essential
+
+# Install Python and other dependencies
+echo "Installing Python and other dependencies..."
 sudo apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
-    apache2 \
-    libapache2-mod-wsgi-py3 \
     python3-dev \
-    apache2-dev \
-    build-essential \
+    libapache2-mod-wsgi-py3 \
     git
 
 # Check if we're in the project directory, if not clone it
@@ -72,7 +77,7 @@ sudo tee /etc/apache2/sites-available/sigma-calculator.conf << 'EOL'
 <VirtualHost *:80>
     ServerName localhost
     
-    WSGIDaemonProcess sigma-calculator python-path=/var/www/sigma-calculator:/var/www/sigma-calculator/venv/lib/python3.9/site-packages
+    WSGIDaemonProcess sigma-calculator python-path=/var/www/sigma-calculator:/var/www/sigma-calculator/venv/lib/python3.11/site-packages
     WSGIProcessGroup sigma-calculator
     WSGIScriptAlias / /var/www/sigma-calculator/wsgi.py
 
