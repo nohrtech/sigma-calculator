@@ -44,6 +44,10 @@ source venv/bin/activate
 echo "Upgrading pip..."
 pip install --upgrade pip
 
+# Remove mod_wsgi if it's in requirements.txt
+echo "Updating requirements.txt..."
+sed -i '/mod_wsgi/d' requirements.txt
+
 # Install Python dependencies
 echo "Installing Python dependencies..."
 pip install -r requirements.txt
