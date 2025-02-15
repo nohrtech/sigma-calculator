@@ -1,3 +1,5 @@
+let currentResults = null;
+
 $(document).ready(function() {
     // Hide loading spinner initially
     $('.loading').hide();
@@ -10,43 +12,39 @@ $(document).ready(function() {
         const files = fileInput.files;
         
         if (files.length === 0) {
-            alert('Please select a file to upload');
+            showError('Please select a file to upload');
             return;
         }
         
         const formData = new FormData();
-        for (let i = 0; i < files.length; i++) {
-            formData.append('file', files[i]);
-        }
+        formData.append('file', files[0]);
         
         // Show loading spinner
         $('.loading').show();
+        $('#error').hide();
         
         // Send file to server
         $.ajax({
-            url: '/upload',
+            url: '/calculate',
             type: 'POST',
             data: formData,
             processData: false,
             contentType: false,
             success: function(response) {
-                // Hide loading spinner
                 $('.loading').hide();
                 
-                if ($('#openInNewTab').is(':checked')) {
-                    // Open results in new tab
-                    const newTab = window.open('', '_blank');
-                    newTab.document.write(response);
+                if ($('#openInNewTab').is(':checked') && response.result_id) {
+                    window.open(`/view_results/${response.result_id}`, '_blank');
                 } else {
-                    // Replace current page with results
-                    document.open();
-                    document.write(response);
-                    document.close();
+                    $('#results').show();
+                    displayResults(response);
                 }
+                
+                fileInput.value = '';
             },
-            error: function(xhr, status, error) {
+            error: function(xhr) {
                 $('.loading').hide();
-                alert('Error processing file: ' + error);
+                showError(xhr.responseJSON?.error || 'Error processing file');
             }
         });
     });
@@ -59,7 +57,7 @@ $(document).ready(function() {
         const file2 = $('#file2')[0].files[0];
         
         if (!file1 || !file2) {
-            alert('Please select two files to compare');
+            showError('Please select two files to compare');
             return;
         }
         
@@ -69,6 +67,7 @@ $(document).ready(function() {
         
         // Show loading spinner
         $('.loading').show();
+        $('#error').hide();
         
         // Send files to server for comparison
         $.ajax({
@@ -78,46 +77,167 @@ $(document).ready(function() {
             processData: false,
             contentType: false,
             success: function(response) {
-                // Hide loading spinner
                 $('.loading').hide();
                 
                 if (response.error) {
-                    alert('Error: ' + response.error);
+                    showError(response.error);
                     return;
                 }
                 
-                // Display comparison results
                 displayComparisonResults(response);
             },
-            error: function(xhr, status, error) {
+            error: function(xhr) {
                 $('.loading').hide();
-                alert('Error comparing files: ' + error);
+                showError(xhr.responseJSON?.error || 'Error comparing files');
             }
         });
     });
     
-    function displayComparisonResults(data) {
-        const comparison = data.comparison;
-        const tbody = $('#comparisonTable');
+    // Handle PDF download
+    $('#downloadPdf').on('click', function() {
+        if (!currentResults) {
+            showError('No results available to download');
+            return;
+        }
+        
+        $.ajax({
+            url: '/generate_pdf',
+            type: 'POST',
+            data: JSON.stringify(currentResults),
+            contentType: 'application/json',
+            xhrFields: {
+                responseType: 'blob'
+            },
+            success: function(blob) {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'sigma_results.pdf';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            },
+            error: function(xhr) {
+                showError(xhr.responseJSON?.error || 'Error generating PDF');
+            }
+        });
+    });
+});
+
+function displayResults(data) {
+    currentResults = data;
+    $('#results').show();
+    
+    if (data.epoch_data) {
+        $('#epochResults').show();
+        const tbody = $('#epochTableBody');
         tbody.empty();
         
-        // Add file names
-        $('#comparisonResults').show();
-        
-        // Add rows for each component
-        ['horizontal', 'vertical', 'E', 'N', 'U'].forEach(comp => {
-            const diff = comparison.differences[comp];
-            const row = $('<tr>');
-            
-            row.append($('<td>').text(comp.charAt(0).toUpperCase() + comp.slice(1)));
-            row.append($('<td>').text(diff.mean_diff.toFixed(3)));
-            row.append($('<td>').text(diff.rms_diff.toFixed(3)));
-            row.append($('<td>').text(diff.max_diff.toFixed(3)));
-            row.append($('<td>').text(diff.std_diff.toFixed(3)));
-            row.append($('<td>').text(diff.mean_diff_pct.toFixed(2) + '%'));
-            row.append($('<td>').text(diff.rms_diff_pct.toFixed(2) + '%'));
-            
-            tbody.append(row);
+        const displayEpochs = data.epoch_data.slice(0, 100);
+        displayEpochs.forEach(epoch => {
+            tbody.append(`
+                <tr>
+                    <td>${epoch.timestamp}</td>
+                    <td>${epoch.horizontal}</td>
+                    <td>${epoch.vertical}</td>
+                    <td>${epoch.east}</td>
+                    <td>${epoch.north}</td>
+                    <td>${epoch.up}</td>
+                </tr>
+            `);
         });
+        
+        if (data.epoch_data.length > 100) {
+            tbody.parent().parent().append(`
+                <p class="text-muted mt-2">
+                    Showing first 100 epochs out of ${data.epoch_data.length} total epochs
+                </p>
+            `);
+        }
+    } else {
+        $('#epochResults').hide();
     }
-});
+    
+    const summary = data.summary;
+    $('#horizontalMean').text(summary.horizontal.mean);
+    $('#horizontalMin').text(summary.horizontal.min);
+    $('#horizontalMax').text(summary.horizontal.max);
+    $('#horizontalStd').text(summary.horizontal.std);
+    
+    $('#verticalMean').text(summary.vertical.mean);
+    $('#verticalMin').text(summary.vertical.min);
+    $('#verticalMax').text(summary.vertical.max);
+    $('#verticalStd').text(summary.vertical.std);
+    
+    $('#EMean').text(summary.E.mean);
+    $('#EMin').text(summary.E.min);
+    $('#EMax').text(summary.E.max);
+    $('#EStd').text(summary.E.std);
+    
+    $('#NMean').text(summary.N.mean);
+    $('#NMin').text(summary.N.min);
+    $('#NMax').text(summary.N.max);
+    $('#NStd').text(summary.N.std);
+    
+    $('#UMean').text(summary.U.mean);
+    $('#UMin').text(summary.U.min);
+    $('#UMax').text(summary.U.max);
+    $('#UStd').text(summary.U.std);
+}
+
+function displayComparisonResults(data) {
+    const comparison = data.comparison;
+    const tbody = $('#comparisonTable');
+    tbody.empty();
+    
+    // Show comparison results section
+    $('#comparisonResults').show();
+    
+    // Add rows for each component
+    ['horizontal', 'vertical', 'E', 'N', 'U'].forEach(comp => {
+        const diff = comparison.differences[comp];
+        const row = $('<tr>');
+        
+        row.append($('<td>').text(comp.charAt(0).toUpperCase() + comp.slice(1)));
+        row.append($('<td>').text(diff.mean_diff.toFixed(3)));
+        row.append($('<td>').text(diff.rms_diff.toFixed(3)));
+        row.append($('<td>').text(diff.max_diff.toFixed(3)));
+        row.append($('<td>').text(diff.std_diff.toFixed(3)));
+        
+        // Add percentage differences with color coding
+        const meanDiffPct = $('<td>').text(diff.mean_diff_pct.toFixed(2) + '%');
+        const rmsDiffPct = $('<td>').text(diff.rms_diff_pct.toFixed(2) + '%');
+        
+        // Color code percentage differences
+        if (Math.abs(diff.mean_diff_pct) > 10) {
+            meanDiffPct.addClass('text-danger');
+        } else if (Math.abs(diff.mean_diff_pct) > 5) {
+            meanDiffPct.addClass('text-warning');
+        } else {
+            meanDiffPct.addClass('text-success');
+        }
+        
+        if (Math.abs(diff.rms_diff_pct) > 10) {
+            rmsDiffPct.addClass('text-danger');
+        } else if (Math.abs(diff.rms_diff_pct) > 5) {
+            rmsDiffPct.addClass('text-warning');
+        } else {
+            rmsDiffPct.addClass('text-success');
+        }
+        
+        row.append(meanDiffPct);
+        row.append(rmsDiffPct);
+        
+        tbody.append(row);
+    });
+}
+
+function showError(message) {
+    const errorDiv = $('#error');
+    errorDiv.text(message);
+    errorDiv.show();
+    $('#results').hide();
+    $('#epochResults').hide();
+    $('#comparisonResults').hide();
+}
