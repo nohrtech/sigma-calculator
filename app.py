@@ -20,6 +20,8 @@ import uuid
 import logging
 from datetime import datetime
 import shutil
+import time
+import threading
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -254,6 +256,69 @@ def generate_pdf_route():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+def cleanup_old_files():
+    """Clean up old temporary files and session data.
+    
+    Removes:
+    1. Uploaded files older than 24 hours
+    2. Session files older than 24 hours
+    3. PDF reports older than 24 hours
+    """
+    logger.info("Starting cleanup of old files...")
+    current_time = time.time()
+    max_age = 24 * 60 * 60  # 24 hours in seconds
+    
+    def remove_old_files(directory, file_type):
+        """Remove files older than max_age from directory."""
+        try:
+            for item in os.listdir(directory):
+                item_path = os.path.join(directory, item)
+                if os.path.isfile(item_path):
+                    # Check if file is older than max_age
+                    if current_time - os.path.getmtime(item_path) > max_age:
+                        try:
+                            os.remove(item_path)
+                            logger.info(f"Removed old {file_type}: {item}")
+                        except OSError as e:
+                            logger.error(f"Error removing {item_path}: {e}")
+        except OSError as e:
+            logger.error(f"Error accessing {directory}: {e}")
+
+    # Clean up uploaded files
+    remove_old_files(app.config['UPLOAD_FOLDER'], "uploaded file")
+    
+    # Clean up session files
+    remove_old_files(app.config['SESSION_FILE_DIR'], "session file")
+    
+    # Clean up PDF reports
+    pdf_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'pdf_reports')
+    if os.path.exists(pdf_dir):
+        remove_old_files(pdf_dir, "PDF report")
+
+    logger.info("File cleanup completed")
+
+@app.before_first_request
+def initialize_app():
+    """Initialize the application before the first request."""
+    # Create necessary directories
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
+    os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'pdf_reports'), exist_ok=True)
+    
+    # Run initial cleanup
+    cleanup_old_files()
+
+def schedule_cleanup():
+    """Schedule periodic cleanup of old files."""
+    while True:
+        time.sleep(3600)  # Run every hour
+        cleanup_old_files()
+
+# Start cleanup thread when running in production
+if not app.debug:
+    cleanup_thread = threading.Thread(target=schedule_cleanup, daemon=True)
+    cleanup_thread.start()
 
 if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
