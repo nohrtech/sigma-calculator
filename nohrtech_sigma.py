@@ -357,62 +357,82 @@ class NohrTechSigmaCalculator:
 
     def compare_with(self, other_calculator):
         """Compare this calculator's results with another calculator's results."""
-        results1 = self.calculate_sigma()
-        results2 = other_calculator.calculate_sigma()
-        
-        if results1 is None or results2 is None:
+        try:
+            # First read both files
+            self.read_file()
+            other_calculator.read_file()
+            
+            # Calculate sigma values for both files
+            results1 = self.calculate_sigma()
+            results2 = other_calculator.calculate_sigma()
+            
+            print(f"Processing file 1: {self.filename}")
+            print(f"Processing file 2: {other_calculator.filename}")
+            
+            if results1 is None:
+                print(f"Error: Could not calculate sigma values for file 1: {self.filename}")
+                return None
+                
+            if results2 is None:
+                print(f"Error: Could not calculate sigma values for file 2: {other_calculator.filename}")
+                return None
+                
+            comparison = {
+                'file1': {},
+                'file2': {},
+                'differences': {
+                    'horizontal': {},
+                    'vertical': {},
+                    'E': {},
+                    'N': {},
+                    'U': {}
+                }
+            }
+            
+            # Store individual file results
+            for comp in ['horizontal', 'vertical', 'E', 'N', 'U']:
+                # File 1 results
+                comparison['file1'][comp] = {
+                    'mean': results1['summary'][comp]['mean'],
+                    'rms': results1['summary'][comp]['rms'],
+                    'max': results1['summary'][comp]['max'],
+                    'std': results1['summary'][comp]['std']
+                }
+                
+                # File 2 results
+                comparison['file2'][comp] = {
+                    'mean': results2['summary'][comp]['mean'],
+                    'rms': results2['summary'][comp]['rms'],
+                    'max': results2['summary'][comp]['max'],
+                    'std': results2['summary'][comp]['std']
+                }
+                
+                # Calculate differences
+                stats1 = results1['summary'][comp]
+                stats2 = results2['summary'][comp]
+                
+                comparison['differences'][comp] = {
+                    'mean_diff': stats2['mean'] - stats1['mean'],
+                    'rms_diff': stats2['rms'] - stats1['rms'],
+                    'max_diff': stats2['max'] - stats1['max'],
+                    'std_diff': stats2['std'] - stats1['std']
+                }
+                
+                # Calculate percentage differences
+                comparison['differences'][comp]['mean_diff_pct'] = (
+                    (stats2['mean'] - stats1['mean']) / stats1['mean'] * 100 if stats1['mean'] != 0 else float('inf')
+                )
+                comparison['differences'][comp]['rms_diff_pct'] = (
+                    (stats2['rms'] - stats1['rms']) / stats1['rms'] * 100 if stats1['rms'] != 0 else float('inf')
+                )
+            
+            return comparison
+            
+        except Exception as e:
+            print(f"Error in compare_with: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
-            
-        comparison = {
-            'file1': {},
-            'file2': {},
-            'differences': {
-                'horizontal': {},
-                'vertical': {},
-                'E': {},
-                'N': {},
-                'U': {}
-            }
-        }
-        
-        # Store individual file results
-        for comp in ['horizontal', 'vertical', 'E', 'N', 'U']:
-            # File 1 results
-            comparison['file1'][comp] = {
-                'mean': results1['summary'][comp]['mean'],
-                'rms': results1['summary'][comp]['rms'],
-                'max': results1['summary'][comp]['max'],
-                'std': results1['summary'][comp]['std']
-            }
-            
-            # File 2 results
-            comparison['file2'][comp] = {
-                'mean': results2['summary'][comp]['mean'],
-                'rms': results2['summary'][comp]['rms'],
-                'max': results2['summary'][comp]['max'],
-                'std': results2['summary'][comp]['std']
-            }
-            
-            # Calculate differences
-            stats1 = results1['summary'][comp]
-            stats2 = results2['summary'][comp]
-            
-            comparison['differences'][comp] = {
-                'mean_diff': stats2['mean'] - stats1['mean'],
-                'rms_diff': stats2['rms'] - stats1['rms'],
-                'max_diff': stats2['max'] - stats1['max'],
-                'std_diff': stats2['std'] - stats1['std']
-            }
-            
-            # Calculate percentage differences
-            comparison['differences'][comp]['mean_diff_pct'] = (
-                (stats2['mean'] - stats1['mean']) / stats1['mean'] * 100 if stats1['mean'] != 0 else float('inf')
-            )
-            comparison['differences'][comp]['rms_diff_pct'] = (
-                (stats2['rms'] - stats1['rms']) / stats1['rms'] * 100 if stats1['rms'] != 0 else float('inf')
-            )
-        
-        return comparison
 
     def print_comparison(self, comparison):
         """Print the comparison results."""

@@ -157,11 +157,16 @@ def compare_files():
     if file1.filename == '' or file2.filename == '':
         return jsonify({'error': 'Please select two files'}), 400
     
+    temp_dir = None
     try:
         # Save files temporarily
         temp_dir = tempfile.mkdtemp()
         file1_path = os.path.join(temp_dir, secure_filename(file1.filename))
         file2_path = os.path.join(temp_dir, secure_filename(file2.filename))
+        
+        app.logger.info(f"Processing files for comparison:")
+        app.logger.info(f"File 1: {file1.filename} -> {file1_path}")
+        app.logger.info(f"File 2: {file2.filename} -> {file2_path}")
         
         file1.save(file1_path)
         file2.save(file2_path)
@@ -174,7 +179,8 @@ def compare_files():
         comparison_results = calculator1.compare_with(calculator2)
         
         if comparison_results is None:
-            return jsonify({'error': 'Error processing files'}), 500
+            app.logger.error("Failed to generate comparison results")
+            return jsonify({'error': 'Failed to process files. Please check if both files are valid GNSS data files.'}), 500
         
         # Add file names to results
         comparison_results['file1_name'] = file1.filename
@@ -184,8 +190,7 @@ def compare_files():
         result_id = str(uuid.uuid4())
         app.comparison_results[result_id] = comparison_results
         
-        # Clean up temporary files
-        shutil.rmtree(temp_dir)
+        app.logger.info("Successfully generated comparison results")
         
         return jsonify({
             'comparison': comparison_results,
@@ -195,10 +200,19 @@ def compare_files():
         })
         
     except Exception as e:
-        # Clean up temporary files if they exist
-        if 'temp_dir' in locals():
-            shutil.rmtree(temp_dir)
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error in compare_files: {str(e)}")
+        import traceback
+        app.logger.error(traceback.format_exc())
+        return jsonify({'error': f'Error processing files: {str(e)}'}), 500
+        
+    finally:
+        # Clean up temporary files
+        if temp_dir and os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir)
+                app.logger.info(f"Cleaned up temporary directory: {temp_dir}")
+            except Exception as e:
+                app.logger.error(f"Error cleaning up temporary directory: {str(e)}")
 
 @app.route('/view_comparison/<result_id>')
 def view_comparison(result_id):
