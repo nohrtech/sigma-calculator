@@ -227,7 +227,7 @@ class NohrTechSigmaCalculator:
             print("No position data found in file")
             return None
 
-        # Calculate horizontal sigma (RMS of East and North components)
+        # Calculate horizontal and vertical sigmas for each epoch
         horizontal_sigmas = []
         vertical_sigmas = []
         for i in range(len(self.sigma_values['E'])):
@@ -237,8 +237,10 @@ class NohrTechSigmaCalculator:
             h_sigma = np.sqrt((e_sigma**2 + n_sigma**2) / 2)  # RMS of E and N
             horizontal_sigmas.append(h_sigma)
             
-            # Vertical sigma (Up component)
-            vertical_sigmas.append(self.sigma_values['U'][i])
+            # Vertical sigma (RMS of Up component)
+            u_sigma = self.sigma_values['U'][i]
+            v_sigma = np.sqrt(u_sigma**2)  # RMS of U
+            vertical_sigmas.append(v_sigma)
 
         # Create results dictionary with proper structure
         results = {
@@ -262,15 +264,29 @@ class NohrTechSigmaCalculator:
             }
             results['epochs'].append(epoch_entry)
 
+        # Calculate overall RMS values
+        rms_horizontal = np.sqrt(np.mean(np.array(horizontal_sigmas)**2))
+        rms_vertical = np.sqrt(np.mean(np.array(vertical_sigmas)**2))
+        rms_e = np.sqrt(np.mean(np.array(self.sigma_values['E'])**2))
+        rms_n = np.sqrt(np.mean(np.array(self.sigma_values['N'])**2))
+        rms_u = np.sqrt(np.mean(np.array(self.sigma_values['U'])**2))
+
         # Calculate summary statistics
         summary = {}
-        for comp in ['horizontal', 'vertical', 'E', 'N', 'U']:
-            values = np.array(results[comp])
+        for comp, values, rms in [
+            ('horizontal', horizontal_sigmas, rms_horizontal),
+            ('vertical', vertical_sigmas, rms_vertical),
+            ('E', self.sigma_values['E'], rms_e),
+            ('N', self.sigma_values['N'], rms_n),
+            ('U', self.sigma_values['U'], rms_u)
+        ]:
+            values_array = np.array(values)
             summary[comp] = {
-                'mean': np.mean(values),
-                'min': np.min(values),
-                'max': np.max(values),
-                'std': np.std(values)
+                'mean': np.mean(values_array),
+                'min': np.min(values_array),
+                'max': np.max(values_array),
+                'std': np.std(values_array),
+                'rms': rms
             }
         
         results['summary'] = summary
@@ -324,18 +340,19 @@ class NohrTechSigmaCalculator:
         # Print summary statistics
         print("\nSummary Statistics:")
         print("-" * 40)
-        print("{:<12} {:>10} {:>10} {:>10} {:>10}".format(
-            "Component", "Mean(mm)", "Min(mm)", "Max(mm)", "Std(mm)"))
-        print("-" * 52)
+        print("{:<12} {:>10} {:>10} {:>10} {:>10} {:>10}".format(
+            "Component", "Mean(mm)", "Min(mm)", "Max(mm)", "Std(mm)", "RMS(mm)"))
+        print("-" * 67)
         
         for comp in ['horizontal', 'vertical', 'E', 'N', 'U']:
             stats = results['summary'][comp]
-            print("{:<12} {:10.3f} {:10.3f} {:10.3f} {:10.3f}".format(
+            print("{:<12} {:10.3f} {:10.3f} {:10.3f} {:10.3f} {:10.3f}".format(
                 comp.capitalize(),
                 stats['mean'],
                 stats['min'],
                 stats['max'],
-                stats['std']
+                stats['std'],
+                stats['rms']
             ))
 
 def main():

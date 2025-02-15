@@ -13,7 +13,7 @@ A professional GNSS position accuracy analysis tool by NohrTech.
 - Summary statistics including mean, min, max, and standard deviation
 - Advanced accuracy calculations:
   - Horizontal sigma: RMS of East and North components per epoch
-  - Vertical sigma: Direct Up component value per epoch
+  - Vertical sigma: RMS of Up component value per epoch
   - Individual epoch-by-epoch analysis for all components
   - Statistical analysis across all epochs
 - Open results in a new tab for better viewing and comparison
@@ -251,13 +251,13 @@ The calculator provides the following information for each supported file type:
 ### RINEX/SBF Files
 - Satellite-specific sigma values
 - Horizontal sigma (RMS of East and North components)
-- Vertical sigma (Direct Up component value per epoch)
+- Vertical sigma (RMS of Up component value per epoch)
 - Component-wise analysis (East, North, Up)
 
 ### XYZ Files
 - Epoch-by-epoch position accuracy
 - Horizontal sigma (RMS of East and North per epoch)
-- Vertical sigma (Direct Up component value per epoch)
+- Vertical sigma (RMS of Up component value per epoch)
 - Individual East, North, Up components
 - Summary statistics for all components
 
@@ -270,9 +270,22 @@ The horizontal sigma is calculated for each epoch as the Root Mean Square (RMS) 
 ```
 
 #### Vertical Sigma
-The vertical sigma calculation depends on the file type:
-- For SBF files: Direct `sigma_up` value from PVTGeodetic blocks
-- For XYZ/LLH files: Direct sU (Up standard deviation) value from each epoch
+The vertical sigma is calculated using RMS in two steps:
+
+1. For each epoch, calculate the RMS of the Up component:
+```
+σ_V = √(σ_U²)
+```
+
+2. For overall vertical accuracy, calculate the RMS across all epochs:
+```
+σ_V_total = √(∑(σ_V²) / n)
+```
+where n is the number of epochs.
+
+The source of the Up component (σ_U) depends on the file type:
+- For SBF files: `sigma_up` value from PVTGeodetic blocks
+- For XYZ/LLH files: sU (Up standard deviation) value from each epoch
 - For RINEX files: Set to 1.5 times the nominal horizontal accuracy
 
 ## License
