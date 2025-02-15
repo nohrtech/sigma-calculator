@@ -143,7 +143,39 @@ The application is set up to run under Apache with mod_wsgi. After installation:
 
 ### Updating the Application
 
-To update to the latest version:
+There are two ways to update the application:
+
+#### Option 1: Using the Update Script (Recommended)
+
+The update script provides an automated way to update the application with built-in safety features:
+- Creates a backup before updating
+- Checks Apache status after update
+- Monitors for errors
+- Provides rollback instructions
+
+To use the update script:
+
+1. Make the script executable:
+   ```bash
+   sudo chmod +x /var/www/sigma-calculator/update.sh
+   ```
+
+2. Run the script:
+   ```bash
+   sudo /var/www/sigma-calculator/update.sh
+   ```
+
+The script will:
+- Create a backup of the current installation
+- Pull the latest changes from Git
+- Update file permissions
+- Restart Apache
+- Check for any errors
+- Provide rollback instructions if needed
+
+#### Option 2: Manual Update
+
+If you prefer to update manually, follow these steps:
 
 1. Navigate to the application directory:
    ```bash
