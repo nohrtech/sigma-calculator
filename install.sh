@@ -18,6 +18,9 @@ sudo apt-get install -y \
     python3-venv \
     apache2 \
     libapache2-mod-wsgi-py3 \
+    python3-dev \
+    apache2-dev \
+    build-essential \
     git
 
 # Check if we're in the project directory, if not clone it
@@ -39,7 +42,6 @@ pip install --upgrade pip
 # Install Python dependencies
 echo "Installing Python dependencies..."
 pip install -r requirements.txt
-pip install mod_wsgi
 
 # Create upload directory
 echo "Creating upload directory..."
