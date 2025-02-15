@@ -144,6 +144,60 @@ def calculate():
         logger.error(f"Error processing file: {str(e)}")
         return jsonify({'error': f'Error processing file: {str(e)}'}), 500
 
+@app.route('/compare', methods=['POST'])
+def compare_files():
+    if 'file1' not in request.files or 'file2' not in request.files:
+        return jsonify({'error': 'Two files are required for comparison'}), 400
+        
+    file1 = request.files['file1']
+    file2 = request.files['file2']
+    
+    if file1.filename == '' or file2.filename == '':
+        return jsonify({'error': 'Both files must be selected'}), 400
+        
+    # Save files to temporary location
+    temp_dir = os.path.join(app.root_path, 'temp')
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    file1_path = os.path.join(temp_dir, secure_filename(file1.filename))
+    file2_path = os.path.join(temp_dir, secure_filename(file2.filename))
+    
+    file1.save(file1_path)
+    file2.save(file2_path)
+    
+    try:
+        # Create calculators for both files
+        calc1 = NohrTechSigmaCalculator(file1_path)
+        calc2 = NohrTechSigmaCalculator(file2_path)
+        
+        # Read and process files
+        calc1.read_file()
+        calc2.read_file()
+        
+        # Compare results
+        comparison = calc1.compare_with(calc2)
+        
+        if comparison is None:
+            return jsonify({'error': 'Error processing files'}), 500
+            
+        # Clean up temporary files
+        os.remove(file1_path)
+        os.remove(file2_path)
+        
+        return jsonify({
+            'comparison': comparison,
+            'file1': file1.filename,
+            'file2': file2.filename
+        })
+        
+    except Exception as e:
+        # Clean up temporary files
+        if os.path.exists(file1_path):
+            os.remove(file1_path)
+        if os.path.exists(file2_path):
+            os.remove(file2_path)
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/generate_pdf', methods=['POST'])
 def generate_pdf_route():
     try:
