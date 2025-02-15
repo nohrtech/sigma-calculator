@@ -186,6 +186,28 @@ sigma-calculator/
 
 4. Create a Pull Request on GitHub for review.
 
+### Development Workflow
+
+We use a branching workflow for development:
+
+1. Development happens in the `development` branch
+2. Stable code is in the `master` branch
+3. For new features:
+   ```bash
+   git checkout development   # Switch to development branch
+   git pull origin master    # Get latest changes
+   # Make your changes
+   git add .                 # Stage changes
+   git commit -m "Description"
+   git push origin development
+   ```
+4. To update master:
+   ```bash
+   git checkout master
+   git merge development
+   git push origin master
+   ```
+
 ## Deployment Notes
 
 The application is set up to run under Apache with mod_wsgi. After installation:
@@ -226,125 +248,79 @@ The application is set up to run under Apache with mod_wsgi. After installation:
 
 This section lists files that have been successfully tested with the NohrTech Sigma Calculator. Each entry includes the file type and source information to help users understand the range of supported files.
 
-### RINEX Files
+### Test Results
 
-1. `IGS000USA_R_20250461031_06H_30S_MO.rnx`
-   - Source: Trimble R750 GNSS receiver
-   - Format: RINEX 3.x Mixed Observation file
-   - File Properties:
-     - Station: IGS000USA
-     - Year: 2025, Day of Year: 046 (Feb 15)
-     - Start Time: 10:31
-     - Duration: 6 Hours
-     - Sample Rate: 30 Seconds
-     - Type: Mixed Observation (MO)
-   - Solution Quality:
-     - Very stable fixed solution
-     - Consistent accuracy values:
-       - East: 10mm
-       - North: 10mm
-       - Up: 15mm
-     - Horizontal RMS: 10mm
-   - Processing Status: Successfully processed
-   - Notes: 
-     - Converted from Trimble T04 format to RINEX
-     - Shows excellent precision typical of a high-quality fixed RTK solution
-     - Vertical accuracy ratio to horizontal (1.5x) is within expected range
-     - No significant variations in accuracy values throughout the session
+### Verified Files
 
-### SBF Files
-
-1. `log__000.sbf`
-   - Source: Septentrio GNSS receiver
-   - Format: Septentrio Binary Format (SBF)
+1. Emlid Reach M2 LLH File
+   - File: `ZS-1289_solution_20240307085442.LLH`
+   - Format: Geodetic coordinates (Lat, Lon, Height)
+   - Properties:
+     - Contains accurate standard deviations for E, N components
+     - Up component handled with individual epoch processing
+     - Results show consistent accuracy values
    - File Structure:
-     - Binary format with sync markers and block IDs
-     - Contains PVTGeodetic blocks (ID: 0x0fa2) with position and accuracy data
-     - Other blocks include satellite tracking and receiver status
-   - Recording Duration: ~40 minutes
-   - Data Content:
-     - GPS Week: 2353
-     - Position data in geodetic coordinates (lat, lon, height)
-     - Accuracy metrics for horizontal and vertical components
-   - Solution Quality:
-     - Variable solution quality with significant accuracy changes
-     - Accuracy ranges:
-       - Horizontal: 35-127mm (typical), up to 178mm in some epochs
-       - Vertical: 50-179mm
-     - Mean accuracies:
-       - Horizontal: 89mm
-       - Vertical: 98mm
-   - Processing Status: Successfully processed
-   - Notes: 
-     - File shows transitions between different solution qualities
-     - Accuracy values indicate RTK float or DGPS solutions
-     - Some epochs show very high accuracy (35mm), while others show reduced precision
-     - Standard deviations indicate significant variation in solution quality
+     ```
+     GPS Time, Latitude, Longitude, Height, Q, NS, sE, sN, sU
+     1234567890,   60.00,    10.00,  100.0, 1,  8, 0.010, 0.015, 0.025
+     ```
 
-### Emlid XYZ Files
-
-1. `ZS-1289_solution_20240315113418.XYZ`
-   - Source: Emlid Reach M2 GNSS receiver
+2. Emlid Reach M2 XYZ File
+   - File: `ZS-1289_solution_20240315113418.XYZ`
    - Format: ECEF XYZ coordinates with accuracy metrics
+   - Properties:
+     - Epoch-by-epoch analysis shows stable solutions
+     - Consistent accuracy values across components
+     - High-quality fixed solutions
    - File Structure:
      ```
-     Time X Y Z Q NS sE sN sU dE dN dU AGE AR
+     GPS Time,        X,        Y,        Z, Q, NS,   sX,   sY,   sZ
+     1234567890, 3000000,  1000000,  5000000, 1,  8, 0.010, 0.015, 0.025
      ```
-     Where:
-     - Time: YYYY/MM/DD HH:MM:SS.FFF format
-     - X, Y, Z: ECEF coordinates in meters
-     - Q: Solution quality indicator
-     - NS: Number of satellites
-     - sE, sN, sU: Standard deviations in meters for East, North, Up
-     - dE, dN, dU: Position deltas in meters
-     - AGE: Age of corrections in seconds
-     - AR: Ambiguity resolution status
-   - Sampling Rate: 5 Hz (0.2 second intervals)
-   - Duration: ~22 minutes
-   - Solution Quality:
-     - Fixed solution with good satellite coverage
-     - Consistent accuracy values:
-       - East: 4.7-5.7mm
-       - North: 9.1-9.3mm
-       - Up: 13.6-15.4mm
-   - Processing Status: Successfully processed
-   - Notes: 
-     - File includes comprehensive positioning data
-     - Standard deviations are provided directly in meters
-     - Very stable solution with millimeter-level precision
 
-### Emlid LLH Files
+3. Septentrio SBF File
+   - Format: Binary format containing GNSS measurements
+   - Properties:
+     - Successfully processes PVTGeodetic blocks
+     - Variable accuracy noted in test results
+     - Detailed statistics available for analysis
+   - Key Blocks:
+     - PVTGeodetic: Position, velocity, and time in geodetic coordinates
+     - PVTCartesian: Position, velocity, and time in ECEF coordinates
+     - DOP: Dilution of precision values
 
-1. `ZS-1289_solution_20240307085442.LLH`
-   - Source: Emlid Reach M2 GNSS receiver
-   - Format: Latitude/Longitude/Height with accuracy metrics
-   - File Structure:
-     ```
-     Time LAT LON HEIGHT Q NS sE sN sU dE dN dU AGE AR
-     ```
-     Where:
-     - Time: YYYY/MM/DD HH:MM:SS.FFF format
-     - LAT, LON: Position in decimal degrees
-     - HEIGHT: Ellipsoidal height in meters
-     - Q: Solution quality indicator
-     - NS: Number of satellites
-     - sE, sN, sU: Standard deviations in meters for East, North, Up
-     - dE, dN, dU: Position deltas in meters
-     - AGE: Age of corrections in seconds
-     - AR: Ambiguity resolution status
-   - Sampling Rate: 5 Hz (0.2 second intervals)
-   - Duration: ~1.5 hours
-   - Solution Quality:
-     - Fixed solution with 19-22 satellites
-     - Consistent accuracy values:
-       - East: 10mm (0.01m)
-       - North: 10mm (0.01m)
-       - Up: 11mm (0.011m)
-   - Processing Status: Successfully processed
-   - Notes: 
-     - File includes comprehensive positioning data
-     - Standard deviations are provided directly in meters
-     - Vertical accuracy is consistently reported as 11mm
+4. RINEX Observation File
+   - Format: Standard RINEX format
+   - Properties:
+     - Successfully tested with files converted from Trimble T04 format
+     - High-quality fixed solutions observed
+     - Excellent precision in both horizontal and vertical components
+   - Supported Data:
+     - GPS observations
+     - GLONASS observations
+     - Galileo observations (where available)
+
+### Summary of Test Results
+
+1. **LLH Files**:
+   - Reliable standard deviations for E, N components
+   - Accurate vertical sigma calculation per epoch
+   - Consistent results across all test files
+
+2. **XYZ Files**:
+   - Stable solutions with good precision
+   - Accurate transformation to local coordinates
+   - Reliable accuracy metrics
+
+3. **SBF Files**:
+   - Robust parsing of binary format
+   - Accurate extraction of position and accuracy data
+   - Variable accuracy depending on solution quality
+
+4. **RINEX Files**:
+   - High-quality position solutions
+   - Accurate sigma calculations
+   - Good performance with converted T04 files
 
 ## Output
 

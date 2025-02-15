@@ -61,6 +61,7 @@
                     <a href="#file-formats" class="list-group-item list-group-item-action">Supported File Formats</a>
                     <a href="#calculations" class="list-group-item list-group-item-action">Sigma Calculations</a>
                     <a href="#components" class="list-group-item list-group-item-action">Position Components</a>
+                    <a href="#test-results" class="list-group-item list-group-item-action">Verified Files</a>
                 </div>
             </div>
             <div class="col-md-9">
@@ -182,6 +183,51 @@
                     <h4>Horizontal Component</h4>
                     <p>The horizontal component combines East and North accuracies to provide a single horizontal accuracy metric. This is particularly useful for applications where overall horizontal positioning accuracy is more relevant than individual directional components.</p>
                 </div>
+
+                <div id="test-results" class="doc-section">
+                    <h2>Verified Files</h2>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Test Results</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6>1. Emlid Reach M2 Files</h6>
+                            <ul>
+                                <li><strong>LLH Format:</strong>
+                                    <ul>
+                                        <li>File: ZS-1289_solution_20240307085442.LLH</li>
+                                        <li>Contains accurate standard deviations for E, N components</li>
+                                        <li>Up component handled with individual epoch processing</li>
+                                        <li>Results show consistent accuracy values</li>
+                                    </ul>
+                                </li>
+                                <li><strong>XYZ Format:</strong>
+                                    <ul>
+                                        <li>File: ZS-1289_solution_20240315113418.XYZ</li>
+                                        <li>ECEF XYZ coordinates with accuracy metrics</li>
+                                        <li>Epoch-by-epoch analysis shows stable solutions</li>
+                                    </ul>
+                                </li>
+                            </ul>
+
+                            <h6>2. Septentrio SBF Files</h6>
+                            <ul>
+                                <li>Successfully processes PVTGeodetic blocks</li>
+                                <li>Variable accuracy noted in test results</li>
+                                <li>Detailed statistics available for analysis</li>
+                            </ul>
+
+                            <h6>3. RINEX Files</h6>
+                            <ul>
+                                <li>Tested with files converted from Trimble T04 format</li>
+                                <li>High-quality fixed solutions observed</li>
+                                <li>Excellent precision in both horizontal and vertical components</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
