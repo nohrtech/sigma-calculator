@@ -19,6 +19,7 @@ import tempfile
 import uuid
 import logging
 from datetime import datetime
+import shutil
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -31,6 +32,7 @@ app.config['SECRET_KEY'] = 'nohrtech-sigma-calculator-secret-key'  # Static secr
 app.config['SESSION_TYPE'] = 'filesystem'  # Store sessions in filesystem
 app.config['SESSION_FILE_DIR'] = os.path.join(tempfile.gettempdir(), 'flask_session')
 app.config['MAX_RESULTS_PER_SESSION'] = 10  # Maximum number of results to store per session
+app.comparison_results = {}
 
 # Ensure the session directory exists
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
@@ -147,56 +149,58 @@ def calculate():
 @app.route('/compare', methods=['POST'])
 def compare_files():
     if 'file1' not in request.files or 'file2' not in request.files:
-        return jsonify({'error': 'Two files are required for comparison'}), 400
-        
+        return jsonify({'error': 'Please upload two files'}), 400
+    
     file1 = request.files['file1']
     file2 = request.files['file2']
     
     if file1.filename == '' or file2.filename == '':
-        return jsonify({'error': 'Both files must be selected'}), 400
-        
-    # Save files to temporary location
-    temp_dir = os.path.join(app.root_path, 'temp')
-    os.makedirs(temp_dir, exist_ok=True)
-    
-    file1_path = os.path.join(temp_dir, secure_filename(file1.filename))
-    file2_path = os.path.join(temp_dir, secure_filename(file2.filename))
-    
-    file1.save(file1_path)
-    file2.save(file2_path)
+        return jsonify({'error': 'Please select two files'}), 400
     
     try:
-        # Create calculators for both files
-        calc1 = NohrTechSigmaCalculator(file1_path)
-        calc2 = NohrTechSigmaCalculator(file2_path)
+        # Save files temporarily
+        temp_dir = tempfile.mkdtemp()
+        file1_path = os.path.join(temp_dir, secure_filename(file1.filename))
+        file2_path = os.path.join(temp_dir, secure_filename(file2.filename))
         
-        # Read and process files
-        calc1.read_file()
-        calc2.read_file()
+        file1.save(file1_path)
+        file2.save(file2_path)
         
-        # Compare results
-        comparison = calc1.compare_with(calc2)
+        # Process files
+        calculator1 = NohrTechSigmaCalculator(file1_path)
+        calculator2 = NohrTechSigmaCalculator(file2_path)
         
-        if comparison is None:
-            return jsonify({'error': 'Error processing files'}), 500
-            
+        # Get comparison results
+        comparison_results = calculator1.compare_with(calculator2)
+        
+        # Add file names to results
+        comparison_results['file1_name'] = file1.filename
+        comparison_results['file2_name'] = file2.filename
+        
+        # Generate a unique ID for the results
+        result_id = str(uuid.uuid4())
+        app.comparison_results[result_id] = comparison_results
+        
         # Clean up temporary files
-        os.remove(file1_path)
-        os.remove(file2_path)
+        shutil.rmtree(temp_dir)
         
         return jsonify({
-            'comparison': comparison,
-            'file1': file1.filename,
-            'file2': file2.filename
+            'comparison': comparison_results,
+            'result_id': result_id,
+            'file1_name': file1.filename,
+            'file2_name': file2.filename
         })
         
     except Exception as e:
-        # Clean up temporary files
-        if os.path.exists(file1_path):
-            os.remove(file1_path)
-        if os.path.exists(file2_path):
-            os.remove(file2_path)
         return jsonify({'error': str(e)}), 500
+
+@app.route('/view_comparison/<result_id>')
+def view_comparison(result_id):
+    if result_id not in app.comparison_results:
+        return "Comparison results not found", 404
+    
+    comparison_results = app.comparison_results[result_id]
+    return render_template('comparison.html', comparison=comparison_results)
 
 @app.route('/generate_pdf', methods=['POST'])
 def generate_pdf_route():

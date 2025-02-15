@@ -84,7 +84,11 @@ $(document).ready(function() {
                     return;
                 }
                 
-                displayComparisonResults(response);
+                if ($('#compareOpenInNewTab').is(':checked') && response.result_id) {
+                    window.open(`/view_comparison/${response.result_id}`, '_blank');
+                } else {
+                    displayComparisonResults(response);
+                }
             },
             error: function(xhr) {
                 $('.loading').hide();
@@ -188,22 +192,53 @@ function displayResults(data) {
 
 function displayComparisonResults(data) {
     const comparison = data.comparison;
-    const tbody = $('#comparisonTable');
-    tbody.empty();
+    const file1Results = $('#file1Results');
+    const file2Results = $('#file2Results');
+    const comparisonTable = $('#comparisonTable');
+    
+    // Clear all tables
+    file1Results.empty();
+    file2Results.empty();
+    comparisonTable.empty();
     
     // Show comparison results section
     $('#comparisonResults').show();
     
-    // Add rows for each component
+    // Set file names
+    $('#file1Name').text(data.file1_name || 'File 1');
+    $('#file2Name').text(data.file2_name || 'File 2');
+    
+    // Display individual file results
     ['horizontal', 'vertical', 'E', 'N', 'U'].forEach(comp => {
-        const diff = comparison.differences[comp];
-        const row = $('<tr>');
+        // File 1 results
+        const stats1 = comparison.file1[comp];
+        const row1 = $('<tr>');
+        row1.append($('<td>').text(comp.charAt(0).toUpperCase() + comp.slice(1)));
+        row1.append($('<td>').text(stats1.mean.toFixed(3)));
+        row1.append($('<td>').text(stats1.rms.toFixed(3)));
+        row1.append($('<td>').text(stats1.max.toFixed(3)));
+        row1.append($('<td>').text(stats1.std.toFixed(3)));
+        file1Results.append(row1);
         
-        row.append($('<td>').text(comp.charAt(0).toUpperCase() + comp.slice(1)));
-        row.append($('<td>').text(diff.mean_diff.toFixed(3)));
-        row.append($('<td>').text(diff.rms_diff.toFixed(3)));
-        row.append($('<td>').text(diff.max_diff.toFixed(3)));
-        row.append($('<td>').text(diff.std_diff.toFixed(3)));
+        // File 2 results
+        const stats2 = comparison.file2[comp];
+        const row2 = $('<tr>');
+        row2.append($('<td>').text(comp.charAt(0).toUpperCase() + comp.slice(1)));
+        row2.append($('<td>').text(stats2.mean.toFixed(3)));
+        row2.append($('<td>').text(stats2.rms.toFixed(3)));
+        row2.append($('<td>').text(stats2.max.toFixed(3)));
+        row2.append($('<td>').text(stats2.std.toFixed(3)));
+        file2Results.append(row2);
+        
+        // Comparison results
+        const diff = comparison.differences[comp];
+        const rowComp = $('<tr>');
+        
+        rowComp.append($('<td>').text(comp.charAt(0).toUpperCase() + comp.slice(1)));
+        rowComp.append($('<td>').text(diff.mean_diff.toFixed(3)));
+        rowComp.append($('<td>').text(diff.rms_diff.toFixed(3)));
+        rowComp.append($('<td>').text(diff.max_diff.toFixed(3)));
+        rowComp.append($('<td>').text(diff.std_diff.toFixed(3)));
         
         // Add percentage differences with color coding
         const meanDiffPct = $('<td>').text(diff.mean_diff_pct.toFixed(2) + '%');
@@ -226,10 +261,10 @@ function displayComparisonResults(data) {
             rmsDiffPct.addClass('text-success');
         }
         
-        row.append(meanDiffPct);
-        row.append(rmsDiffPct);
+        rowComp.append(meanDiffPct);
+        rowComp.append(rmsDiffPct);
         
-        tbody.append(row);
+        comparisonTable.append(rowComp);
     });
 }
 

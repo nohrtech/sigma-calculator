@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NohrTech Sigma Calculator - Comparison Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .company-name {
+            font-size: 0.8em;
+            color: #7f8c8d;
+        }
+        .table-responsive {
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+            <span class="navbar-brand">
+                NohrTech Sigma Calculator
+                <div class="company-name">NohrTech - Precision GNSS Solutions</div>
+            </span>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h2 class="mb-4">Comparison Results</h2>
+        
+        <div class="row">
+            <!-- First File Results -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">File 1: {{ comparison.file1_name }}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Component</th>
+                                        <th>Mean</th>
+                                        <th>RMS</th>
+                                        <th>Max</th>
+                                        <th>Std</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for comp in ['horizontal', 'vertical', 'E', 'N', 'U'] %}
+                                    <tr>
+                                        <td>{{ comp|capitalize }}</td>
+                                        <td>{{ "%.3f"|format(comparison.file1[comp].mean) }}</td>
+                                        <td>{{ "%.3f"|format(comparison.file1[comp].rms) }}</td>
+                                        <td>{{ "%.3f"|format(comparison.file1[comp].max) }}</td>
+                                        <td>{{ "%.3f"|format(comparison.file1[comp].std) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Second File Results -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">File 2: {{ comparison.file2_name }}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Component</th>
+                                        <th>Mean</th>
+                                        <th>RMS</th>
+                                        <th>Max</th>
+                                        <th>Std</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for comp in ['horizontal', 'vertical', 'E', 'N', 'U'] %}
+                                    <tr>
+                                        <td>{{ comp|capitalize }}</td>
+                                        <td>{{ "%.3f"|format(comparison.file2[comp].mean) }}</td>
+                                        <td>{{ "%.3f"|format(comparison.file2[comp].rms) }}</td>
+                                        <td>{{ "%.3f"|format(comparison.file2[comp].max) }}</td>
+                                        <td>{{ "%.3f"|format(comparison.file2[comp].std) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Comparison Results -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Differences (File 2 - File 1)</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Mean Diff</th>
+                                <th>RMS Diff</th>
+                                <th>Max Diff</th>
+                                <th>Std Diff</th>
+                                <th>Mean Diff %</th>
+                                <th>RMS Diff %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for comp in ['horizontal', 'vertical', 'E', 'N', 'U'] %}
+                            {% set diff = comparison.differences[comp] %}
+                            <tr>
+                                <td>{{ comp|capitalize }}</td>
+                                <td>{{ "%.3f"|format(diff.mean_diff) }}</td>
+                                <td>{{ "%.3f"|format(diff.rms_diff) }}</td>
+                                <td>{{ "%.3f"|format(diff.max_diff) }}</td>
+                                <td>{{ "%.3f"|format(diff.std_diff) }}</td>
+                                <td class="{% if diff.mean_diff_pct|abs > 10 %}text-danger{% elif diff.mean_diff_pct|abs > 5 %}text-warning{% else %}text-success{% endif %}">
+                                    {{ "%.2f"|format(diff.mean_diff_pct) }}%
+                                </td>
+                                <td class="{% if diff.rms_diff_pct|abs > 10 %}text-danger{% elif diff.rms_diff_pct|abs > 5 %}text-warning{% else %}text-success{% endif %}">
+                                    {{ "%.2f"|format(diff.rms_diff_pct) }}%
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

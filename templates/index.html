@@ -128,29 +128,94 @@
                                             <input type="file" class="form-control" id="file2" name="file2" accept=".rnx,.sbf,.xyz,.pos,.llh">
                                         </div>
                                     </div>
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="compareOpenInNewTab">
+                                        <label class="form-check-label" for="compareOpenInNewTab">Open results in new tab</label>
+                                    </div>
                                     <div class="text-center">
                                         <button type="submit" class="btn btn-primary">Compare Files</button>
                                     </div>
                                 </form>
                                 
                                 <div id="comparisonResults" class="mt-4" style="display: none;">
-                                    <h5>Comparison Results</h5>
-                                    <div class="table-responsive">
-                                        <table class="table table-striped table-hover">
-                                            <thead>
-                                                <tr>
-                                                    <th>Component</th>
-                                                    <th>Mean Diff</th>
-                                                    <th>RMS Diff</th>
-                                                    <th>Max Diff</th>
-                                                    <th>Std Diff</th>
-                                                    <th>Mean Diff %</th>
-                                                    <th>RMS Diff %</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="comparisonTable">
-                                            </tbody>
-                                        </table>
+                                    <div class="row">
+                                        <!-- First File Results -->
+                                        <div class="col-md-6">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h6 class="card-title mb-0">File 1: <span id="file1Name"></span></h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Component</th>
+                                                                    <th>Mean</th>
+                                                                    <th>RMS</th>
+                                                                    <th>Max</th>
+                                                                    <th>Std</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody id="file1Results">
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Second File Results -->
+                                        <div class="col-md-6">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h6 class="card-title mb-0">File 2: <span id="file2Name"></span></h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Component</th>
+                                                                    <th>Mean</th>
+                                                                    <th>RMS</th>
+                                                                    <th>Max</th>
+                                                                    <th>Std</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody id="file2Results">
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Comparison Results -->
+                                    <div class="card mt-4">
+                                        <div class="card-header">
+                                            <h6 class="card-title mb-0">Differences (File 2 - File 1)</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-striped table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Component</th>
+                                                            <th>Mean Diff</th>
+                                                            <th>RMS Diff</th>
+                                                            <th>Max Diff</th>
+                                                            <th>Std Diff</th>
+                                                            <th>Mean Diff %</th>
+                                                            <th>RMS Diff %</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="comparisonTable">
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
