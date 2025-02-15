@@ -13,6 +13,7 @@ fi
 APP_DIR="/var/www/sigma-calculator"
 APACHE_ERROR_LOG="/var/log/apache2/sigma-calculator-error.log"
 BACKUP_DIR="/var/www/sigma-calculator-backup"
+REPO_URL="https://github.com/nohrtech/sigma-calculator.git"
 
 # Function to display status messages
 status_message() {
@@ -43,6 +44,33 @@ check_status "Backup created at $backup_path"
 status_message "Navigating to application directory..."
 cd "$APP_DIR"
 check_status "Changed directory to $APP_DIR"
+
+# Initialize Git if needed
+if [ ! -d ".git" ]; then
+    status_message "Initializing Git repository..."
+    git init
+    check_status "Initialized Git repository"
+    
+    # Add remote repository
+    git remote add origin "$REPO_URL"
+    check_status "Added remote repository"
+    
+    # Set branch to main/master
+    git checkout -b master
+    check_status "Created master branch"
+fi
+
+# Check if remote exists, add if not
+if ! git remote get-url origin >/dev/null 2>&1; then
+    git remote add origin "$REPO_URL"
+    check_status "Added remote repository"
+fi
+
+# Reset any local changes and update remote
+status_message "Resetting local changes..."
+git fetch origin master
+git reset --hard origin/master
+check_status "Reset to remote version"
 
 # Fetch latest changes
 status_message "Fetching latest changes..."
