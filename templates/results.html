@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results - {{ filename }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
+    <style>
+        .results-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .table-responsive {
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-4">Results for {{ filename }}</h1>
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Summary Statistics</h5>
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Component</th>
+                                        <th>Mean (mm)</th>
+                                        <th>Min (mm)</th>
+                                        <th>Max (mm)</th>
+                                        <th>Std Dev (mm)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if results.summary %}
+                                    <tr>
+                                        <td>Horizontal</td>
+                                        <td>{{ results.summary.horizontal.mean }}</td>
+                                        <td>{{ results.summary.horizontal.min }}</td>
+                                        <td>{{ results.summary.horizontal.max }}</td>
+                                        <td>{{ results.summary.horizontal.std }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Vertical</td>
+                                        <td>{{ results.summary.vertical.mean }}</td>
+                                        <td>{{ results.summary.vertical.min }}</td>
+                                        <td>{{ results.summary.vertical.max }}</td>
+                                        <td>{{ results.summary.vertical.std }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>East</td>
+                                        <td>{{ results.summary.E.mean }}</td>
+                                        <td>{{ results.summary.E.min }}</td>
+                                        <td>{{ results.summary.E.max }}</td>
+                                        <td>{{ results.summary.E.std }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>North</td>
+                                        <td>{{ results.summary.N.mean }}</td>
+                                        <td>{{ results.summary.N.min }}</td>
+                                        <td>{{ results.summary.N.max }}</td>
+                                        <td>{{ results.summary.N.std }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Up</td>
+                                        <td>{{ results.summary.U.mean }}</td>
+                                        <td>{{ results.summary.U.min }}</td>
+                                        <td>{{ results.summary.U.max }}</td>
+                                        <td>{{ results.summary.U.std }}</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if results.satellites %}
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Satellite Results</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>PRN</th>
+                                <th>Sigma (mm)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sat in results.satellites %}
+                            <tr>
+                                <td>{{ sat.prn }}</td>
+                                <td>{{ sat.sigma }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if results.epoch_data %}
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Epoch-by-Epoch Results</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Horizontal (mm)</th>
+                                <th>Vertical (mm)</th>
+                                <th>East (mm)</th>
+                                <th>North (mm)</th>
+                                <th>Up (mm)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for epoch in results.epoch_data %}
+                            <tr>
+                                <td>{{ epoch.timestamp }}</td>
+                                <td>{{ epoch.horizontal }}</td>
+                                <td>{{ epoch.vertical }}</td>
+                                <td>{{ epoch.east }}</td>
+                                <td>{{ epoch.north }}</td>
+                                <td>{{ epoch.up }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

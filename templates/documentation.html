@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation - NohrTech Sigma Calculator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .company-name {
+            font-size: 0.8em;
+            color: #7f8c8d;
+        }
+        .doc-section {
+            margin-bottom: 2rem;
+        }
+        .formula {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+            <span class="navbar-brand">
+                NohrTech Sigma Calculator
+                <div class="company-name">NohrTech - Precision GNSS Solutions</div>
+            </span>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="bi bi-house-door"></i> Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/documentation"><i class="bi bi-book"></i> Documentation</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/disclaimer"><i class="bi bi-exclamation-triangle"></i> Disclaimer</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-3">
+                <!-- Sidebar navigation -->
+                <div class="list-group">
+                    <a href="#overview" class="list-group-item list-group-item-action">Overview</a>
+                    <a href="#file-formats" class="list-group-item list-group-item-action">Supported File Formats</a>
+                    <a href="#calculations" class="list-group-item list-group-item-action">Sigma Calculations</a>
+                    <a href="#components" class="list-group-item list-group-item-action">Position Components</a>
+                </div>
+            </div>
+            <div class="col-md-9">
+                <!-- Main content -->
+                <div id="overview" class="doc-section">
+                    <h2>Overview</h2>
+                    <p>The NohrTech Sigma Calculator is a professional tool for analyzing GNSS position accuracy. It processes various types of GNSS data files to calculate and analyze position accuracy metrics (sigma values) in different coordinate components.</p>
+                </div>
+
+                <div id="file-formats" class="doc-section">
+                    <h2>Supported File Formats</h2>
+                    
+                    <h3>Supported File Formats</h3>
+                    <div class="mb-4">
+                        <h4>1. RINEX Observation Files (.rnx, .obs)</h4>
+                        <p>Standard RINEX format containing raw GNSS observation data. The calculator processes these files to extract position accuracy information.</p>
+                        
+                        <h4>2. Septentrio Binary Format (.sbf)</h4>
+                        <p>Binary format from Septentrio GNSS receivers containing measurement data. The calculator extracts and processes the relevant position accuracy metrics.</p>
+                        
+                        <h4>3. Emlid Solution Files (.xyz, .llh)</h4>
+                        <p>Position solution files from Emlid GNSS receivers, available in two formats:</p>
+                        <ul>
+                            <li><strong>XYZ Format:</strong> Contains position data in Cartesian coordinates (X, Y, Z) with corresponding accuracy metrics.</li>
+                            <li><strong>LLH Format:</strong> Contains position data in geodetic coordinates (Latitude, Longitude, Height) with corresponding accuracy metrics.</li>
+                        </ul>
+                        <p>Both formats include epoch-by-epoch position data along with standard deviations for each component.</p>
+                    </div>
+                </div>
+
+                <div id="calculations" class="doc-section">
+                    <h2>Sigma Calculations</h2>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Accuracy Calculations</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6>Horizontal Sigma</h6>
+                            <p>
+                                The horizontal sigma is calculated as the Root Mean Square (RMS) of the East and North components for each epoch:
+                                <code>σ_H = √((σ_E² + σ_N²) / 2)</code>
+                            </p>
+                            <p>
+                                This provides a combined measure of horizontal accuracy that accounts for both East and North components.
+                            </p>
+
+                            <h6>Vertical Sigma</h6>
+                            <p>
+                                The vertical sigma is taken directly from the Up component value for each epoch. This provides:
+                            </p>
+                            <ul>
+                                <li>Individual vertical accuracy values per epoch</li>
+                                <li>True representation of vertical precision over time</li>
+                                <li>Ability to track vertical accuracy changes throughout the observation period</li>
+                            </ul>
+
+                            <h6>Summary Statistics</h6>
+                            <p>
+                                For each component (Horizontal, Vertical, E, N, U), the following statistics are calculated:
+                            </p>
+                            <ul>
+                                <li>Mean: Average value across all epochs</li>
+                                <li>Min: Minimum value observed</li>
+                                <li>Max: Maximum value observed</li>
+                                <li>Standard Deviation: Measure of variation in the values</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">File Format Support</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6>RINEX Observation Files (.rnx, .obs)</h6>
+                            <ul>
+                                <li>Standard GNSS observation data format</li>
+                                <li>Contains raw measurements from satellites</li>
+                                <li>Provides satellite-specific sigma values</li>
+                            </ul>
+
+                            <h6>Septentrio Binary Format (.sbf)</h6>
+                            <ul>
+                                <li>Binary format from Septentrio receivers</li>
+                                <li>Contains detailed GNSS measurements</li>
+                                <li>Supports PVTGeodetic blocks for position accuracy</li>
+                            </ul>
+
+                            <h6>Emlid Solution Files (.xyz, .llh)</h6>
+                            <ul>
+                                <li>Position solution files from Emlid GNSS receivers</li>
+                                <li>Contains epoch-by-epoch position data</li>
+                                <li>Includes accuracy metrics for each component</li>
+                                <li>Supports both XYZ (Cartesian) and LLH (Latitude/Longitude/Height) formats</li>
+                                <li>Each epoch includes:
+                                    <ul>
+                                        <li>Timestamp</li>
+                                        <li>Position coordinates</li>
+                                        <li>Individual accuracy values for E, N, U components</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="components" class="doc-section">
+                    <h2>Position Components</h2>
+                    
+                    <h4>East-North-Up (ENU)</h4>
+                    <p>The calculator uses the local East-North-Up coordinate system for reporting position accuracy:</p>
+                    <ul>
+                        <li><strong>East (E):</strong> Accuracy in the east-west direction</li>
+                        <li><strong>North (N):</strong> Accuracy in the north-south direction</li>
+                        <li><strong>Up (U):</strong> Accuracy in the vertical direction</li>
+                    </ul>
+
+                    <h4>Horizontal Component</h4>
+                    <p>The horizontal component combines East and North accuracies to provide a single horizontal accuracy metric. This is particularly useful for applications where overall horizontal positioning accuracy is more relevant than individual directional components.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

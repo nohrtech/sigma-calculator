@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NohrTech Sigma Calculator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
+    <style>
+        .results-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .loading {
+            display: none;
+        }
+        .component-card {
+            margin-bottom: 1rem;
+        }
+        .table-responsive {
+            overflow-x: auto;
+        }
+        .navbar-brand {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .company-name {
+            font-size: 0.8em;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+            <span class="navbar-brand">
+                NohrTech Sigma Calculator
+                <div class="company-name">NohrTech - Precision GNSS Solutions</div>
+            </span>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/"><i class="bi bi-house-door"></i> Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/documentation"><i class="bi bi-book"></i> Documentation</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/disclaimer"><i class="bi bi-exclamation-triangle"></i> Disclaimer</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h1 class="mb-4">NohrTech Sigma Calculator</h1>
+        
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Upload Observation File</h5>
+                <form id="uploadForm" class="mb-3">
+                    <div class="mb-3">
+                        <input type="file" class="form-control" id="file" accept=".rnx,.obs,.sbf,.xyz,.llh,.RNX,.OBS,.SBF,.XYZ,.LLH" multiple>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Supported File Types:</label>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                RINEX Observation Files
+                                <span class="badge bg-primary rounded-pill">.rnx, .obs</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Septentrio Binary Format
+                                <span class="badge bg-primary rounded-pill">.sbf</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Emlid Solution Files
+                                <span class="badge bg-primary rounded-pill">.xyz, .llh</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="openInNewTab">
+                        <label class="form-check-label" for="openInNewTab">Open results in new tab</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Calculate Sigma Values</button>
+                </form>
+                
+                <div class="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="ms-2">Processing file...</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="results" style="display: none;">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="card-title mb-0">Summary Statistics</h5>
+                                <div>
+                                    <button id="downloadPdf" class="btn btn-success">
+                                        <i class="bi bi-file-pdf"></i> Download PDF Report
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Component</th>
+                                            <th>Mean (mm)</th>
+                                            <th>Min (mm)</th>
+                                            <th>Max (mm)</th>
+                                            <th>Std Dev (mm)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Horizontal</td>
+                                            <td id="horizontalMean"></td>
+                                            <td id="horizontalMin"></td>
+                                            <td id="horizontalMax"></td>
+                                            <td id="horizontalStd"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Vertical</td>
+                                            <td id="verticalMean"></td>
+                                            <td id="verticalMin"></td>
+                                            <td id="verticalMax"></td>
+                                            <td id="verticalStd"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>East</td>
+                                            <td id="EMean"></td>
+                                            <td id="EMin"></td>
+                                            <td id="EMax"></td>
+                                            <td id="EStd"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>North</td>
+                                            <td id="NMean"></td>
+                                            <td id="NMin"></td>
+                                            <td id="NMax"></td>
+                                            <td id="NStd"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Up</td>
+                                            <td id="UMean"></td>
+                                            <td id="UMin"></td>
+                                            <td id="UMax"></td>
+                                            <td id="UStd"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Satellite Results</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>PRN</th>
+                                    <th>Horizontal (mm)</th>
+                                    <th>Vertical (mm)</th>
+                                    <th>E (mm)</th>
+                                    <th>N (mm)</th>
+                                    <th>U (mm)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="satResults"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="epochResults" style="display: none;">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Epoch-by-Epoch Results</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Horizontal (mm)</th>
+                                    <th>Vertical (mm)</th>
+                                    <th>East (mm)</th>
+                                    <th>North (mm)</th>
+                                    <th>Up (mm)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="epochTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="error" class="alert alert-danger mt-3" style="display: none;"></div>
+    </div>
+
+    <script>
+        let currentResults = null;
+
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('file');
+            const openInNewTab = document.getElementById('openInNewTab').checked;
+            
+            if (!fileInput.files.length) {
+                showError('Please select a file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            document.querySelector('.loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+
+            try {
+                const response = await fetch('/calculate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to process file');
+                }
+
+                const data = await response.json();
+                
+                if (openInNewTab && data.result_id) {
+                    window.open(`/view_results/${data.result_id}`, '_blank');
+                } else {
+                    document.getElementById('results').style.display = 'block';
+                    displayResults(data);
+                }
+
+                fileInput.value = '';
+                
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                document.querySelector('.loading').style.display = 'none';
+            }
+        });
+
+        document.getElementById('downloadPdf').addEventListener('click', async () => {
+            if (!currentResults) {
+                showError('No results available to download');
+                return;
+            }
+
+            try {
+                const response = await fetch('/generate_pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(currentResults)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Error generating PDF');
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `sigma_results.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+
+            } catch (error) {
+                showError(error.message);
+            }
+        });
+
+        function displayResults(data) {
+            currentResults = data;
+            document.getElementById('results').style.display = 'block';
+            
+            if (data.epoch_data) {
+                document.getElementById('epochResults').style.display = 'block';
+                const tbody = document.getElementById('epochTableBody');
+                tbody.innerHTML = '';
+                
+                const displayEpochs = data.epoch_data.slice(0, 100);
+                displayEpochs.forEach(epoch => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${epoch.timestamp}</td>
+                        <td>${epoch.horizontal}</td>
+                        <td>${epoch.vertical}</td>
+                        <td>${epoch.east}</td>
+                        <td>${epoch.north}</td>
+                        <td>${epoch.up}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                if (data.epoch_data.length > 100) {
+                    const note = document.createElement('p');
+                    note.className = 'text-muted mt-2';
+                    note.textContent = `Showing first 100 epochs out of ${data.epoch_data.length} total epochs`;
+                    tbody.parentElement.parentElement.appendChild(note);
+                }
+            } else {
+                document.getElementById('epochResults').style.display = 'none';
+            }
+
+            const summary = data.summary;
+            document.getElementById('horizontalMean').textContent = summary.horizontal.mean;
+            document.getElementById('horizontalMin').textContent = summary.horizontal.min;
+            document.getElementById('horizontalMax').textContent = summary.horizontal.max;
+            document.getElementById('horizontalStd').textContent = summary.horizontal.std;
+            
+            document.getElementById('verticalMean').textContent = summary.vertical.mean;
+            document.getElementById('verticalMin').textContent = summary.vertical.min;
+            document.getElementById('verticalMax').textContent = summary.vertical.max;
+            document.getElementById('verticalStd').textContent = summary.vertical.std;
+            
+            document.getElementById('EMean').textContent = summary.E.mean;
+            document.getElementById('EMin').textContent = summary.E.min;
+            document.getElementById('EMax').textContent = summary.E.max;
+            document.getElementById('EStd').textContent = summary.E.std;
+            
+            document.getElementById('NMean').textContent = summary.N.mean;
+            document.getElementById('NMin').textContent = summary.N.min;
+            document.getElementById('NMax').textContent = summary.N.max;
+            document.getElementById('NStd').textContent = summary.N.std;
+            
+            document.getElementById('UMean').textContent = summary.U.mean;
+            document.getElementById('UMin').textContent = summary.U.min;
+            document.getElementById('UMax').textContent = summary.U.max;
+            document.getElementById('UStd').textContent = summary.U.std;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('epochResults').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

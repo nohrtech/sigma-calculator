@@ -1,0 +1,5 @@
+numpy>=1.21.0
+Flask==3.0.0
+Flask-Session==0.8.0
+Werkzeug==3.0.1
+reportlab==4.0.9
