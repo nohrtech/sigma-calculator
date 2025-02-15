@@ -186,6 +186,28 @@ sigma-calculator/
 
 4. Create a Pull Request on GitHub for review.
 
+### Development Workflow
+
+We use a branching workflow for development:
+
+1. Development happens in the `development` branch
+2. Stable code is in the `master` branch
+3. For new features:
+   ```bash
+   git checkout development   # Switch to development branch
+   git pull origin master    # Get latest changes
+   # Make your changes
+   git add .                 # Stage changes
+   git commit -m "Description"
+   git push origin development
+   ```
+4. To update master:
+   ```bash
+   git checkout master
+   git merge development
+   git push origin master
+   ```
+
 ## Deployment Notes
 
 The application is set up to run under Apache with mod_wsgi. After installation:
