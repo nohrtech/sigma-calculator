@@ -226,54 +226,55 @@ After=network.target
 [Service]
 User=www-data
 Group=www-data
+RuntimeDirectory=gunicorn
 WorkingDirectory=$APP_DIR
-Environment="PATH=$APP_DIR/venv/bin"
+Environment="PATH=$APP_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONPATH=$APP_DIR"
 Environment="FLASK_APP=app.py"
 Environment="FLASK_ENV=production"
-Environment="GUNICORN_ERROR_LOGFILE=$APP_DIR/logs/gunicorn-error.log"
-Environment="GUNICORN_ACCESS_LOGFILE=$APP_DIR/logs/gunicorn-access.log"
-ExecStartPre=/bin/rm -f $APP_DIR/logs/gunicorn-error.log
-ExecStartPre=/bin/rm -f $APP_DIR/logs/gunicorn-access.log
 ExecStartPre=/bin/mkdir -p $APP_DIR/logs
 ExecStartPre=/bin/chown -R www-data:www-data $APP_DIR/logs
-ExecStart=/bin/bash -c 'source $APP_DIR/venv/bin/activate && \
-    $APP_DIR/venv/bin/gunicorn \
-    --workers 3 \
+ExecStart=$APP_DIR/venv/bin/python -m gunicorn \
     --bind 127.0.0.1:8000 \
+    --workers 1 \
+    --log-level debug \
     --error-logfile $APP_DIR/logs/gunicorn-error.log \
     --access-logfile $APP_DIR/logs/gunicorn-access.log \
-    --capture-output \
-    --log-level debug \
-    --timeout 120 \
-    --reload \
-    app:app'
+    app:app
 Restart=always
 RestartSec=5
-StandardOutput=append:$APP_DIR/logs/service-output.log
-StandardError=append:$APP_DIR/logs/service-error.log
 
 [Install]
 WantedBy=multi-user.target
 EOL
 
-# Create a test Flask app if it doesn't exist
-if [ ! -f "$APP_DIR/app.py" ]; then
-    status_message "Creating test Flask app..."
-    cat > "$APP_DIR/app.py" << EOL
+# Create a simple test Flask app
+status_message "Creating test Flask app..."
+cat > "$APP_DIR/app.py" << EOL
 from flask import Flask
+import logging
+
+# Set up logging
+logging.basicConfig(
+    filename='logs/app.log',
+    level=logging.DEBUG,
+    format='%(asctime)s %(levelname)s: %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 
 @app.route('/')
 def hello():
+    logger.info('Handling request to /')
     return 'NohrTech Sigma Calculator is running!'
 
 if __name__ == '__main__':
     app.run()
 EOL
-fi
 
-# Set permissions for application directory
+# Set up directories and permissions
+status_message "Setting up directories..."
 mkdir -p "$APP_DIR/logs"
 chown -R www-data:www-data "$APP_DIR"
 chmod -R 755 "$APP_DIR"
@@ -282,7 +283,29 @@ chmod -R 775 "$APP_DIR/logs"
 # Install required Python packages
 status_message "Installing Python packages..."
 source "$APP_DIR/venv/bin/activate"
+pip install --upgrade pip
 pip install flask gunicorn
+
+# Test Flask app directly
+status_message "Testing Flask app directly..."
+cd "$APP_DIR"
+echo "Running Flask app with gunicorn directly to test..."
+source venv/bin/activate
+python -m gunicorn --bind 127.0.0.1:8000 app:app --log-level debug &
+GUNICORN_PID=$!
+sleep 5
+
+# Test the direct connection
+curl -v http://127.0.0.1:8000/ || {
+    echo "Direct gunicorn test failed"
+    cat logs/gunicorn-error.log
+    kill $GUNICORN_PID
+    exit 1
+}
+
+# Kill test process
+kill $GUNICORN_PID
+sleep 2
 
 # Restart services
 status_message "Restarting services..."
@@ -291,21 +314,22 @@ systemctl stop apache2 || true
 systemctl stop $APP_NAME || true
 sleep 2
 
-# Start Flask service first
+# Start Flask service
 echo "Starting Flask service..."
 systemctl start $APP_NAME
 sleep 2
 
-# Check service logs
-echo "Checking service logs..."
+# Show all relevant logs
 echo "=== Service Status ==="
 systemctl status $APP_NAME
 echo "=== Gunicorn Error Log ==="
-cat "$APP_DIR/logs/gunicorn-error.log" 2>/dev/null || echo "No gunicorn error log found"
+cat "$APP_DIR/logs/gunicorn-error.log"
 echo "=== Service Error Log ==="
-cat "$APP_DIR/logs/service-error.log" 2>/dev/null || echo "No service error log found"
+cat "$APP_DIR/logs/service-error.log"
 echo "=== Journal Log ==="
 journalctl -u $APP_NAME --no-pager -n 50
+echo "=== App Log ==="
+cat "$APP_DIR/logs/app.log"
 
 # Wait for Flask to start
 echo "Waiting for Flask to start..."
