@@ -63,8 +63,12 @@ apt-get install -y \
     libxml2-dev
 check_status "Installed Apache and development packages"
 
+# Install mod_proxy_html module
+apt-get install -y libapache2-mod-proxy-uwsgi || true
+
 # Enable necessary Apache modules
-a2enmod proxy_html
+a2enmod proxy
+a2enmod proxy_html || true
 a2enmod proxy_http
 
 # Install Python and other dependencies
