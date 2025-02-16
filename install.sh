@@ -131,12 +131,31 @@ User=www-data
 Group=www-data
 WorkingDirectory=$APP_DIR
 Environment="PATH=$APP_DIR/venv/bin"
-ExecStart=$APP_DIR/venv/bin/gunicorn --workers 3 --bind unix:$APP_DIR/$APP_NAME.sock -m 007 app:app
+Environment="PYTHONPATH=$APP_DIR"
+Environment="FLASK_APP=app.py"
+Environment="FLASK_ENV=production"
+ExecStart=$APP_DIR/venv/bin/gunicorn --workers 3 --bind unix:$APP_DIR/$APP_NAME.sock -m 007 wsgi:app
+Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 EOL
 check_status "Created systemd service"
+
+# Create WSGI file
+status_message "Creating WSGI file..."
+cat > "$APP_DIR/wsgi.py" << EOL
+from app import app
+
+if __name__ == "__main__":
+    app.run()
+EOL
+check_status "Created WSGI file"
+
+# Set correct permissions
+chown www-data:www-data "$APP_DIR/wsgi.py"
+chmod 644 "$APP_DIR/wsgi.py"
 
 # Create Apache configuration
 status_message "Creating Apache configuration..."
@@ -193,9 +212,13 @@ check_status "Configured Apache"
 # Start and enable Flask service
 status_message "Starting Flask service..."
 systemctl daemon-reload
+sleep 2  # Give systemd time to process the new configuration
+systemctl stop $APP_NAME || true  # Stop if running
+sleep 2  # Wait for service to stop completely
 systemctl start $APP_NAME || {
     echo "Failed to start Flask service. Checking logs..."
     journalctl -u $APP_NAME --no-pager -n 50
+    systemctl status $APP_NAME
     exit 1
 }
 systemctl enable $APP_NAME
