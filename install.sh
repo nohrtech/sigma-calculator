@@ -173,13 +173,15 @@ cat > "/etc/apache2/sites-available/$APP_NAME.conf" << EOL
         Require all granted
     </Directory>
 
+    ProxyRequests Off
     ProxyPreserveHost On
-    ProxyPass / http://unix:$APP_DIR/$APP_NAME.sock|http://127.0.0.1/
-    ProxyPassReverse / http://unix:$APP_DIR/$APP_NAME.sock|http://127.0.0.1/
+    
+    ProxyPass / unix:$APP_DIR/$APP_NAME.sock|http://localhost/
+    ProxyPassReverse / unix:$APP_DIR/$APP_NAME.sock|http://localhost/
 
-    <Location />
+    <Proxy *>
         Require all granted
-    </Location>
+    </Proxy>
 </VirtualHost>
 EOL
 check_status "Created Apache configuration"
@@ -188,6 +190,7 @@ check_status "Created Apache configuration"
 status_message "Configuring Apache..."
 a2enmod proxy
 a2enmod proxy_http
+a2enmod proxy_uwsgi
 a2enmod proxy_balancer
 a2enmod lbmethod_byrequests
 
@@ -237,6 +240,7 @@ ExecStart=$APP_DIR/venv/bin/gunicorn \
     --capture-output \
     --log-level debug \
     --timeout 120 \
+    --umask 007 \
     wsgi:app
 Restart=always
 RestartSec=5
