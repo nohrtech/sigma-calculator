@@ -224,25 +224,41 @@ Description=NohrTech Sigma Calculator Flask App
 After=network.target
 
 [Service]
+Type=simple
 User=www-data
 Group=www-data
 RuntimeDirectory=gunicorn
 WorkingDirectory=$APP_DIR
 Environment="PATH=$APP_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONPATH=$APP_DIR"
-Environment="FLASK_APP=app.py"
+Environment="FLASK_APP=$APP_DIR/app.py"
 Environment="FLASK_ENV=production"
+Environment="LANG=C.UTF-8"
+Environment="LC_ALL=C.UTF-8"
+
+# Create required directories
 ExecStartPre=/bin/mkdir -p $APP_DIR/logs
 ExecStartPre=/bin/chown -R www-data:www-data $APP_DIR/logs
-ExecStart=$APP_DIR/venv/bin/python -m gunicorn \
+ExecStartPre=/bin/chmod 775 $APP_DIR/logs
+
+# Start Gunicorn
+ExecStart=$APP_DIR/venv/bin/gunicorn \
+    --chdir $APP_DIR \
     --bind 127.0.0.1:8000 \
     --workers 1 \
     --log-level debug \
     --error-logfile $APP_DIR/logs/gunicorn-error.log \
     --access-logfile $APP_DIR/logs/gunicorn-access.log \
+    --capture-output \
     app:app
+
+# Restart settings
 Restart=always
 RestartSec=5
+
+# Process management
+KillMode=mixed
+TimeoutStopSec=5
 
 [Install]
 WantedBy=multi-user.target
@@ -253,6 +269,10 @@ status_message "Creating test Flask app..."
 cat > "$APP_DIR/app.py" << EOL
 from flask import Flask
 import logging
+import os
+
+# Ensure logs directory exists
+os.makedirs('logs', exist_ok=True)
 
 # Set up logging
 logging.basicConfig(
@@ -261,6 +281,11 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s: %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Log startup information
+logger.info('Starting application')
+logger.info('Current directory: %s', os.getcwd())
+logger.info('Python path: %s', os.getenv('PYTHONPATH'))
 
 app = Flask(__name__)
 
@@ -282,23 +307,34 @@ chmod -R 775 "$APP_DIR/logs"
 
 # Install required Python packages
 status_message "Installing Python packages..."
-source "$APP_DIR/venv/bin/activate"
-pip install --upgrade pip
-pip install flask gunicorn
-
-# Test Flask app directly
-status_message "Testing Flask app directly..."
 cd "$APP_DIR"
-echo "Running Flask app with gunicorn directly to test..."
-source venv/bin/activate
-python -m gunicorn --bind 127.0.0.1:8000 app:app --log-level debug &
+source "venv/bin/activate"
+pip install --upgrade pip
+pip install --no-cache-dir flask gunicorn
+
+# Test gunicorn directly
+status_message "Testing gunicorn directly..."
+echo "Running test with gunicorn directly..."
+$APP_DIR/venv/bin/gunicorn \
+    --chdir $APP_DIR \
+    --bind 127.0.0.1:8000 \
+    --workers 1 \
+    --log-level debug \
+    --error-logfile $APP_DIR/logs/gunicorn-error.log \
+    --access-logfile $APP_DIR/logs/gunicorn-access.log \
+    --capture-output \
+    app:app &
+
 GUNICORN_PID=$!
 sleep 5
 
 # Test the direct connection
 curl -v http://127.0.0.1:8000/ || {
-    echo "Direct gunicorn test failed"
-    cat logs/gunicorn-error.log
+    echo "Direct gunicorn test failed. Checking logs..."
+    echo "=== Gunicorn Error Log ==="
+    cat "$APP_DIR/logs/gunicorn-error.log"
+    echo "=== App Log ==="
+    cat "$APP_DIR/logs/app.log"
     kill $GUNICORN_PID
     exit 1
 }
@@ -314,28 +350,26 @@ systemctl stop apache2 || true
 systemctl stop $APP_NAME || true
 sleep 2
 
-# Start Flask service
+# Start and verify Flask service
 echo "Starting Flask service..."
 systemctl start $APP_NAME
 sleep 2
 
-# Show all relevant logs
-echo "=== Service Status ==="
-systemctl status $APP_NAME
-echo "=== Gunicorn Error Log ==="
-cat "$APP_DIR/logs/gunicorn-error.log"
-echo "=== Service Error Log ==="
-cat "$APP_DIR/logs/service-error.log"
+# Show detailed status and logs
+echo "=== Systemd Service Status ==="
+systemctl status $APP_NAME --no-pager
 echo "=== Journal Log ==="
 journalctl -u $APP_NAME --no-pager -n 50
+echo "=== Gunicorn Error Log ==="
+cat "$APP_DIR/logs/gunicorn-error.log"
 echo "=== App Log ==="
 cat "$APP_DIR/logs/app.log"
 
-# Wait for Flask to start
-echo "Waiting for Flask to start..."
+# Test Flask service
+echo "Testing Flask service..."
 for i in {1..10}; do
     if curl -s http://127.0.0.1:8000/ > /dev/null; then
-        echo "Flask is running"
+        echo "Flask service is running"
         break
     fi
     echo "Waiting... ($i/10)"
