@@ -222,6 +222,7 @@ cat > "/etc/systemd/system/$APP_NAME.service" << EOL
 [Unit]
 Description=NohrTech Sigma Calculator Flask App
 After=network.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -235,14 +236,24 @@ Environment="FLASK_APP=$APP_DIR/app.py"
 Environment="FLASK_ENV=production"
 Environment="LANG=C.UTF-8"
 Environment="LC_ALL=C.UTF-8"
+Environment="PYTHONUNBUFFERED=1"
 
-# Create required directories
+# Debug information
+ExecStartPre=/bin/sh -c 'echo "Debug: Starting service at \$(date)" >> $APP_DIR/logs/debug.log'
+ExecStartPre=/bin/sh -c 'echo "Debug: Working directory: \$PWD" >> $APP_DIR/logs/debug.log'
+ExecStartPre=/bin/sh -c 'echo "Debug: Python path: \$PYTHONPATH" >> $APP_DIR/logs/debug.log'
+ExecStartPre=/bin/sh -c 'ls -la $APP_DIR >> $APP_DIR/logs/debug.log'
+ExecStartPre=/bin/sh -c 'ls -la $APP_DIR/venv/bin >> $APP_DIR/logs/debug.log'
+
+# Create and set up logs directory
 ExecStartPre=/bin/mkdir -p $APP_DIR/logs
 ExecStartPre=/bin/chown -R www-data:www-data $APP_DIR/logs
 ExecStartPre=/bin/chmod 775 $APP_DIR/logs
 
 # Start Gunicorn
-ExecStart=$APP_DIR/venv/bin/gunicorn \
+ExecStart=/bin/bash -c '\
+    source $APP_DIR/venv/bin/activate && \
+    exec gunicorn \
     --chdir $APP_DIR \
     --bind 127.0.0.1:8000 \
     --workers 1 \
@@ -250,15 +261,17 @@ ExecStart=$APP_DIR/venv/bin/gunicorn \
     --error-logfile $APP_DIR/logs/gunicorn-error.log \
     --access-logfile $APP_DIR/logs/gunicorn-access.log \
     --capture-output \
-    app:app
+    --preload \
+    app:app'
 
 # Restart settings
 Restart=always
-RestartSec=5
+RestartSec=1
+StartLimitBurst=3
+TimeoutStartSec=30
 
-# Process management
-KillMode=mixed
-TimeoutStopSec=5
+StandardOutput=append:$APP_DIR/logs/service-output.log
+StandardError=append:$APP_DIR/logs/service-error.log
 
 [Install]
 WantedBy=multi-user.target
@@ -270,11 +283,10 @@ cat > "$APP_DIR/app.py" << EOL
 from flask import Flask
 import logging
 import os
-
-# Ensure logs directory exists
-os.makedirs('logs', exist_ok=True)
+import sys
 
 # Set up logging
+os.makedirs('logs', exist_ok=True)
 logging.basicConfig(
     filename='logs/app.log',
     level=logging.DEBUG,
@@ -286,8 +298,16 @@ logger = logging.getLogger(__name__)
 logger.info('Starting application')
 logger.info('Current directory: %s', os.getcwd())
 logger.info('Python path: %s', os.getenv('PYTHONPATH'))
+logger.info('Python executable: %s', sys.executable)
+logger.info('Python version: %s', sys.version)
+logger.info('Loaded modules: %s', ', '.join(sys.modules.keys()))
 
-app = Flask(__name__)
+try:
+    app = Flask(__name__)
+    logger.info('Flask app created successfully')
+except Exception as e:
+    logger.error('Failed to create Flask app: %s', str(e))
+    raise
 
 @app.route('/')
 def hello():
@@ -297,25 +317,6 @@ def hello():
 if __name__ == '__main__':
     app.run()
 EOL
-
-# Function to check if port is in use
-check_port() {
-    local port=$1
-    if lsof -i:$port > /dev/null 2>&1; then
-        echo "Port $port is already in use"
-        echo "Checking processes using port $port:"
-        lsof -i:$port
-        return 1
-    fi
-    return 0
-}
-
-# Function to kill processes using a port
-kill_port_processes() {
-    local port=$1
-    echo "Killing processes using port $port..."
-    lsof -ti:$port | xargs kill -9 2>/dev/null || true
-}
 
 # Set up directories and permissions
 status_message "Setting up directories..."
@@ -333,25 +334,20 @@ pip install --no-cache-dir flask gunicorn
 
 # Clean up any existing processes
 status_message "Cleaning up existing processes..."
-kill_port_processes 8000
+pkill -f gunicorn || true
 sleep 2
 
-# Check if port is available
-if ! check_port 8000; then
-    echo "Failed to free up port 8000"
-    exit 1
-fi
-
-# Test gunicorn directly
+# Test gunicorn directly first
 status_message "Testing gunicorn directly..."
 echo "Running test with gunicorn directly..."
-$APP_DIR/venv/bin/gunicorn \
-    --chdir $APP_DIR \
+source "$APP_DIR/venv/bin/activate"
+gunicorn \
+    --chdir "$APP_DIR" \
     --bind 127.0.0.1:8000 \
     --workers 1 \
     --log-level debug \
-    --error-logfile $APP_DIR/logs/gunicorn-error.log \
-    --access-logfile $APP_DIR/logs/gunicorn-access.log \
+    --error-logfile "$APP_DIR/logs/gunicorn-error.log" \
+    --access-logfile "$APP_DIR/logs/gunicorn-access.log" \
     --capture-output \
     app:app &
 
@@ -365,21 +361,14 @@ curl -s http://127.0.0.1:8000/ || {
     cat "$APP_DIR/logs/gunicorn-error.log"
     echo "=== App Log ==="
     cat "$APP_DIR/logs/app.log"
-    kill -9 $GUNICORN_PID 2>/dev/null || true
+    pkill -f gunicorn || true
     exit 1
 }
 
-# Kill test process and ensure it's gone
+# Clean up test process
 echo "Cleaning up test process..."
-kill -9 $GUNICORN_PID 2>/dev/null || true
-kill_port_processes 8000
+pkill -f gunicorn || true
 sleep 2
-
-# Verify port is free
-if ! check_port 8000; then
-    echo "Failed to free up port 8000 after test"
-    exit 1
-fi
 
 # Restart services
 status_message "Restarting services..."
@@ -394,12 +383,16 @@ systemctl start $APP_NAME
 sleep 5
 
 # Show detailed status and logs
+echo "=== Debug Log ==="
+cat "$APP_DIR/logs/debug.log"
 echo "=== Systemd Service Status ==="
 systemctl status $APP_NAME --no-pager
 echo "=== Journal Log ==="
 journalctl -u $APP_NAME --no-pager -n 50
 echo "=== Gunicorn Error Log ==="
 cat "$APP_DIR/logs/gunicorn-error.log"
+echo "=== Service Error Log ==="
+cat "$APP_DIR/logs/service-error.log"
 echo "=== App Log ==="
 cat "$APP_DIR/logs/app.log"
 
