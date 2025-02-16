@@ -9,7 +9,7 @@ BRANCH="master"  # Using master branch
 APP_NAME="sigma-calculator"
 APP_DIR="/var/www/$APP_NAME"
 PYTHON_MIN_VERSION="3.6"
-FLASK_PORT="5000"
+FLASK_PORT="8000"
 DOMAIN="localhost"
 
 # Version management
@@ -189,13 +189,12 @@ cat > "/etc/apache2/sites-available/$APP_NAME.conf" << EOL
     ProxyRequests Off
     ProxyPreserveHost On
     
-    <Proxy "unix:$APP_DIR/$APP_NAME.sock|http://localhost/">
-        ProxySet connectiontimeout=75 timeout=300
+    ProxyPass / http://127.0.0.1:8000/
+    ProxyPassReverse / http://127.0.0.1:8000/
+
+    <Proxy *>
         Require all granted
     </Proxy>
-
-    ProxyPass / "unix:$APP_DIR/$APP_NAME.sock|http://localhost/"
-    ProxyPassReverse / "unix:$APP_DIR/$APP_NAME.sock|http://localhost/"
 </VirtualHost>
 EOL
 check_status "Created Apache configuration"
@@ -204,10 +203,8 @@ check_status "Created Apache configuration"
 status_message "Configuring Apache..."
 a2enmod proxy
 a2enmod proxy_http
-a2enmod proxy_uwsgi
 a2enmod proxy_balancer
 a2enmod lbmethod_byrequests
-a2enmod unix2_module || true
 
 # Disable default site and enable our site
 a2dissite 000-default
@@ -236,16 +233,14 @@ Environment="FLASK_APP=app.py"
 Environment="FLASK_ENV=production"
 Environment="GUNICORN_ERROR_LOGFILE=$APP_DIR/logs/gunicorn-error.log"
 Environment="GUNICORN_ACCESS_LOGFILE=$APP_DIR/logs/gunicorn-access.log"
-ExecStartPre=/bin/rm -f $APP_DIR/$APP_NAME.sock
 ExecStart=$APP_DIR/venv/bin/gunicorn \
     --workers 3 \
-    --bind unix:$APP_DIR/$APP_NAME.sock \
+    --bind 127.0.0.1:8000 \
     --error-logfile $APP_DIR/logs/gunicorn-error.log \
     --access-logfile $APP_DIR/logs/gunicorn-access.log \
     --capture-output \
     --log-level debug \
     --timeout 120 \
-    --umask 007 \
     wsgi:app
 Restart=always
 RestartSec=5
@@ -256,7 +251,7 @@ StandardError=append:$APP_DIR/logs/service-error.log
 WantedBy=multi-user.target
 EOL
 
-# Set permissions for socket directory
+# Set permissions for application directory
 mkdir -p "$APP_DIR"
 chown www-data:www-data "$APP_DIR"
 chmod 755 "$APP_DIR"
@@ -282,27 +277,16 @@ systemctl start $APP_NAME || {
     exit 1
 }
 
-# Wait for socket file to be created
-echo "Waiting for socket file..."
+# Wait for Flask to start
+echo "Waiting for Flask to start..."
 for i in {1..10}; do
-    if [ -S "$APP_DIR/$APP_NAME.sock" ]; then
-        echo "Socket file created"
+    if curl -s http://127.0.0.1:8000/ > /dev/null; then
+        echo "Flask is running"
         break
     fi
     echo "Waiting... ($i/10)"
     sleep 1
 done
-
-# Verify socket file
-if [ ! -S "$APP_DIR/$APP_NAME.sock" ]; then
-    echo "Error: Socket file not created"
-    systemctl status $APP_NAME
-    exit 1
-fi
-
-# Set socket permissions
-chown www-data:www-data "$APP_DIR/$APP_NAME.sock"
-chmod 660 "$APP_DIR/$APP_NAME.sock"
 
 # Start Apache
 systemctl start apache2 || {
@@ -327,9 +311,9 @@ fi
 
 # Test connection
 echo "Testing connection..."
-curl -v --unix-socket "$APP_DIR/$APP_NAME.sock" http://localhost/ || {
-    echo "Error: Could not connect to socket"
-    ls -l "$APP_DIR/$APP_NAME.sock"
+curl -v http://127.0.0.1:8000/ || {
+    echo "Error: Could not connect to Flask service"
+    systemctl status $APP_NAME
     exit 1
 }
 
