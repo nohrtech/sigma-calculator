@@ -107,16 +107,19 @@ check_status "Created and activated virtual environment"
 # Upgrade pip and install dependencies
 status_message "Installing Python dependencies..."
 pip install --upgrade pip
+pip install gunicorn flask flask-session werkzeug
 pip install -r requirements.txt
-pip install gunicorn  # For production server
 check_status "Installed Python dependencies"
 
-# Create necessary directories
+# Create necessary directories with proper permissions
 status_message "Creating application directories..."
 mkdir -p instance
 mkdir -p logs
-mkdir -p "$APP_DIR/data"  # For storing uploaded files
-chmod 755 instance logs "$APP_DIR/data"
+mkdir -p "$APP_DIR/data"
+mkdir -p "$APP_DIR/uploads"
+mkdir -p "$APP_DIR/flask_session"
+chmod 755 instance logs "$APP_DIR/data" "$APP_DIR/uploads" "$APP_DIR/flask_session"
+chown -R www-data:www-data instance logs "$APP_DIR/data" "$APP_DIR/uploads" "$APP_DIR/flask_session"
 check_status "Created application directories"
 
 # Create log directory

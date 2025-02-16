@@ -24,20 +24,30 @@ import time
 import threading
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s %(levelname)s: %(message)s',
+    handlers=[
+        logging.FileHandler('logs/app.log'),
+        logging.StreamHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['SECRET_KEY'] = 'nohrtech-sigma-calculator-secret-key'  # Static secret key for session management
-app.config['SESSION_TYPE'] = 'filesystem'  # Store sessions in filesystem
-app.config['SESSION_FILE_DIR'] = os.path.join(tempfile.gettempdir(), 'flask_session')
-app.config['MAX_RESULTS_PER_SESSION'] = 10  # Maximum number of results to store per session
-app.comparison_results = {}
+app.config.update(
+    UPLOAD_FOLDER=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads'),
+    MAX_CONTENT_LENGTH=16 * 1024 * 1024,  # 16MB max file size
+    SECRET_KEY='nohrtech-sigma-calculator-secret-key',
+    SESSION_TYPE='filesystem',
+    SESSION_FILE_DIR=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'flask_session'),
+    MAX_RESULTS_PER_SESSION=10
+)
 
-# Ensure the session directory exists
-os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
+# Ensure directories exist
+for directory in [app.config['UPLOAD_FOLDER'], app.config['SESSION_FILE_DIR']]:
+    os.makedirs(directory, exist_ok=True)
+    logger.info(f"Ensuring directory exists: {directory}")
 
 # Initialize Flask-Session
 Session(app)
