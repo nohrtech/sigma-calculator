@@ -5,11 +5,12 @@ set -e
 
 # Configuration
 REPO_URL="https://github.com/nohrtech/sigma-calculator.git"
-BRANCH="main"
+BRANCH="setup"  # Using setup branch
 APP_NAME="sigma-calculator"
 APP_DIR="/var/www/$APP_NAME"
 PYTHON_MIN_VERSION="3.6"
-VENV_PYTHON_VERSION="3.11"  # Specific version for virtual environment
+FLASK_PORT="5000"
+DOMAIN="localhost"
 
 # Function to display status messages
 status_message() {
@@ -58,7 +59,9 @@ apt-get install -y \
     apache2 \
     apache2-dev \
     apache2-utils \
-    build-essential
+    build-essential \
+    libapache2-mod-proxy-html \
+    libxml2-dev
 check_status "Installed Apache and development packages"
 
 # Install Python and other dependencies
@@ -68,7 +71,6 @@ apt-get install -y \
     python3-pip \
     python3-venv \
     python3-dev \
-    libapache2-mod-wsgi-py3 \
     git
 check_status "Installed Python and other dependencies"
 
@@ -95,42 +97,66 @@ python3 -m venv venv
 source venv/bin/activate
 check_status "Created and activated virtual environment"
 
-# Upgrade pip
-status_message "Upgrading pip..."
-pip install --upgrade pip
-check_status "Upgraded pip"
-
-# Install Python dependencies
+# Upgrade pip and install dependencies
 status_message "Installing Python dependencies..."
+pip install --upgrade pip
 pip install -r requirements.txt
+pip install gunicorn  # For production server
 check_status "Installed Python dependencies"
 
-# Create data directories
-status_message "Creating data directories..."
-mkdir -p data/uploads
-mkdir -p data/results
-chmod 755 data/uploads data/results
-check_status "Created data directories"
+# Create necessary directories
+status_message "Creating application directories..."
+mkdir -p instance
+mkdir -p logs
+mkdir -p "$APP_DIR/data"  # For storing uploaded files
+chmod 755 instance logs "$APP_DIR/data"
+check_status "Created application directories"
 
-# Create Apache configuration file
+# Create systemd service file for Flask
+status_message "Creating systemd service..."
+cat > "/etc/systemd/system/$APP_NAME.service" << EOL
+[Unit]
+Description=NohrTech Sigma Calculator Flask App
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=$APP_DIR
+Environment="PATH=$APP_DIR/venv/bin"
+ExecStart=$APP_DIR/venv/bin/gunicorn --workers 3 --bind unix:$APP_DIR/$APP_NAME.sock -m 007 app:app
+
+[Install]
+WantedBy=multi-user.target
+EOL
+check_status "Created systemd service"
+
+# Create Apache configuration
 status_message "Creating Apache configuration..."
 cat > "/etc/apache2/sites-available/$APP_NAME.conf" << EOL
 <VirtualHost *:80>
-    ServerName localhost
-    
-    WSGIDaemonProcess $APP_NAME python-path=$APP_DIR:$APP_DIR/venv/lib/python$VENV_PYTHON_VERSION/site-packages
-    WSGIProcessGroup $APP_NAME
-    WSGIScriptAlias / $APP_DIR/nohrtech_sigma.py
-
-    <Directory $APP_DIR>
-        Require all granted
-        <Files nohrtech_sigma.py>
-            Require all granted
-        </Files>
-    </Directory>
+    ServerName $DOMAIN
+    ServerAdmin webmaster@localhost
+    DocumentRoot $APP_DIR
 
     ErrorLog \${APACHE_LOG_DIR}/$APP_NAME-error.log
     CustomLog \${APACHE_LOG_DIR}/$APP_NAME-access.log combined
+
+    ProxyPreserveHost On
+    ProxyPass / unix:$APP_DIR/$APP_NAME.sock|http://127.0.0.1/
+    ProxyPassReverse / unix:$APP_DIR/$APP_NAME.sock|http://127.0.0.1/
+
+    <Directory $APP_DIR>
+        Options FollowSymLinks
+        AllowOverride None
+        Require all granted
+    </Directory>
+
+    <Directory $APP_DIR/static>
+        Options FollowSymLinks
+        AllowOverride None
+        Require all granted
+    </Directory>
 </VirtualHost>
 EOL
 check_status "Created Apache configuration"
@@ -142,37 +168,63 @@ chmod -R 755 "$APP_DIR"
 chmod +x "$APP_DIR/nohrtech_sigma.py"
 check_status "Set up permissions"
 
-# Verify script functionality
-status_message "Verifying script functionality..."
-if ! python3 "$APP_DIR/nohrtech_sigma.py" --help >/dev/null 2>&1; then
-    echo " Error: Script verification failed"
-    exit 1
-fi
-check_status "Script verification passed"
+# Create symbolic link for command-line tool
+status_message "Creating symbolic link..."
+ln -sf "$APP_DIR/nohrtech_sigma.py" /usr/local/bin/nohrtech-sigma
+check_status "Created symbolic link"
 
-# Enable the site and required modules
-status_message "Enabling Apache configuration..."
+# Enable Apache modules and configure
+status_message "Configuring Apache..."
+a2enmod proxy
+a2enmod proxy_http
+a2enmod proxy_balancer
+a2enmod lbmethod_byrequests
 a2ensite "$APP_NAME"
-a2enmod wsgi
 a2dissite 000-default
 systemctl restart apache2
-check_status "Enabled Apache configuration"
+check_status "Configured Apache"
+
+# Start and enable Flask service
+status_message "Starting Flask service..."
+systemctl start $APP_NAME
+systemctl enable $APP_NAME
+check_status "Started Flask service"
+
+# Verify services
+status_message "Verifying services..."
+if ! systemctl is-active --quiet apache2; then
+    echo " Error: Apache is not running"
+    exit 1
+fi
+if ! systemctl is-active --quiet $APP_NAME; then
+    echo " Error: Flask service is not running"
+    exit 1
+fi
+check_status "Services verified"
 
 status_message "Installation Summary"
 echo " Installation completed successfully!"
 echo
 echo "Application Details:"
-echo "- Location: $APP_DIR"
-echo "- Web URL: http://localhost"
-echo "- Error Log: /var/log/apache2/$APP_NAME-error.log"
-echo "- Access Log: /var/log/apache2/$APP_NAME-access.log"
+echo "- Web Interface: http://$DOMAIN"
+echo "- Command-line Tool: nohrtech-sigma"
+echo "- Installation Directory: $APP_DIR"
+echo "- Log Files:"
+echo "  * Apache: /var/log/apache2/$APP_NAME-error.log"
+echo "  * Flask: $APP_DIR/logs/app.log"
 echo
-echo "To update the application:"
-echo "1. cd $APP_DIR"
-echo "2. sudo ./update.sh"
+echo "Usage Examples:"
+echo "1. Web Interface:"
+echo "   Open http://$DOMAIN in your browser"
 echo
-echo "To test the installation:"
-echo "python3 $APP_DIR/nohrtech_sigma.py --help"
+echo "2. Command Line:"
+echo "   nohrtech-sigma input.rnx"
+echo "   nohrtech-sigma position.xyz"
+echo
+echo "Service Management:"
+echo "- Restart Flask: sudo systemctl restart $APP_NAME"
+echo "- Restart Apache: sudo systemctl restart apache2"
+echo "- View Logs: tail -f /var/log/apache2/$APP_NAME-error.log"
 echo
 if [ -n "$backup_dir" ]; then
     echo "Backup of previous installation: $backup_dir"
