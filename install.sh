@@ -233,7 +233,12 @@ Environment="FLASK_APP=app.py"
 Environment="FLASK_ENV=production"
 Environment="GUNICORN_ERROR_LOGFILE=$APP_DIR/logs/gunicorn-error.log"
 Environment="GUNICORN_ACCESS_LOGFILE=$APP_DIR/logs/gunicorn-access.log"
-ExecStart=$APP_DIR/venv/bin/gunicorn \
+ExecStartPre=/bin/rm -f $APP_DIR/logs/gunicorn-error.log
+ExecStartPre=/bin/rm -f $APP_DIR/logs/gunicorn-access.log
+ExecStartPre=/bin/mkdir -p $APP_DIR/logs
+ExecStartPre=/bin/chown -R www-data:www-data $APP_DIR/logs
+ExecStart=/bin/bash -c 'source $APP_DIR/venv/bin/activate && \
+    $APP_DIR/venv/bin/gunicorn \
     --workers 3 \
     --bind 127.0.0.1:8000 \
     --error-logfile $APP_DIR/logs/gunicorn-error.log \
@@ -241,7 +246,8 @@ ExecStart=$APP_DIR/venv/bin/gunicorn \
     --capture-output \
     --log-level debug \
     --timeout 120 \
-    wsgi:app
+    --reload \
+    app:app'
 Restart=always
 RestartSec=5
 StandardOutput=append:$APP_DIR/logs/service-output.log
@@ -251,10 +257,32 @@ StandardError=append:$APP_DIR/logs/service-error.log
 WantedBy=multi-user.target
 EOL
 
+# Create a test Flask app if it doesn't exist
+if [ ! -f "$APP_DIR/app.py" ]; then
+    status_message "Creating test Flask app..."
+    cat > "$APP_DIR/app.py" << EOL
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return 'NohrTech Sigma Calculator is running!'
+
+if __name__ == '__main__':
+    app.run()
+EOL
+fi
+
 # Set permissions for application directory
-mkdir -p "$APP_DIR"
-chown www-data:www-data "$APP_DIR"
-chmod 755 "$APP_DIR"
+mkdir -p "$APP_DIR/logs"
+chown -R www-data:www-data "$APP_DIR"
+chmod -R 755 "$APP_DIR"
+chmod -R 775 "$APP_DIR/logs"
+
+# Install required Python packages
+status_message "Installing Python packages..."
+source "$APP_DIR/venv/bin/activate"
+pip install flask gunicorn
 
 # Restart services
 status_message "Restarting services..."
@@ -264,18 +292,20 @@ systemctl stop $APP_NAME || true
 sleep 2
 
 # Start Flask service first
-systemctl start $APP_NAME || {
-    echo "Failed to start Flask service. Checking logs..."
-    echo "=== Service Status ==="
-    systemctl status $APP_NAME
-    echo "=== Gunicorn Error Log ==="
-    cat "$APP_DIR/logs/gunicorn-error.log" 2>/dev/null || echo "No gunicorn error log found"
-    echo "=== Service Error Log ==="
-    cat "$APP_DIR/logs/service-error.log" 2>/dev/null || echo "No service error log found"
-    echo "=== Application Log ==="
-    cat "$APP_DIR/logs/app.log" 2>/dev/null || echo "No application log found"
-    exit 1
-}
+echo "Starting Flask service..."
+systemctl start $APP_NAME
+sleep 2
+
+# Check service logs
+echo "Checking service logs..."
+echo "=== Service Status ==="
+systemctl status $APP_NAME
+echo "=== Gunicorn Error Log ==="
+cat "$APP_DIR/logs/gunicorn-error.log" 2>/dev/null || echo "No gunicorn error log found"
+echo "=== Service Error Log ==="
+cat "$APP_DIR/logs/service-error.log" 2>/dev/null || echo "No service error log found"
+echo "=== Journal Log ==="
+journalctl -u $APP_NAME --no-pager -n 50
 
 # Wait for Flask to start
 echo "Waiting for Flask to start..."
