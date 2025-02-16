@@ -111,18 +111,29 @@ check_status "Cloned repository"
 cd "$APP_DIR"
 check_status "Changed to application directory"
 
-# Create virtual environment
-status_message "Setting up Python virtual environment..."
-python3 -m venv venv
-source venv/bin/activate
-check_status "Created and activated virtual environment"
+# Set up Python environment
+status_message "Setting up Python environment..."
+apt-get update
+apt-get install -y python3-venv python3-pip
 
-# Upgrade pip and install dependencies
-status_message "Installing Python dependencies..."
-pip install --upgrade pip
-pip install gunicorn flask flask-session werkzeug
-pip install -r requirements.txt
-check_status "Installed Python dependencies"
+# Remove existing venv if it exists
+rm -rf "$APP_DIR/venv"
+
+# Create fresh virtual environment
+python3 -m venv "$APP_DIR/venv" --without-pip
+curl https://bootstrap.pypa.io/get-pip.py -o "$APP_DIR/get-pip.py"
+"$APP_DIR/venv/bin/python3" "$APP_DIR/get-pip.py"
+rm "$APP_DIR/get-pip.py"
+
+# Install required Python packages
+status_message "Installing Python packages..."
+cd "$APP_DIR"
+source "venv/bin/activate"
+"$APP_DIR/venv/bin/pip" install --no-cache-dir flask gunicorn
+
+# Set permissions
+chown -R www-data:www-data "$APP_DIR/venv"
+chmod -R 755 "$APP_DIR/venv"
 
 # Create necessary directories with proper permissions
 status_message "Creating application directories..."
@@ -324,13 +335,6 @@ mkdir -p "$APP_DIR/logs"
 chown -R www-data:www-data "$APP_DIR"
 chmod -R 755 "$APP_DIR"
 chmod -R 775 "$APP_DIR/logs"
-
-# Install required Python packages
-status_message "Installing Python packages..."
-cd "$APP_DIR"
-source "venv/bin/activate"
-pip install --upgrade pip
-pip install --no-cache-dir flask gunicorn
 
 # Clean up any existing processes
 status_message "Cleaning up existing processes..."
