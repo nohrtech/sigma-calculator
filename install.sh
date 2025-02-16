@@ -12,6 +12,19 @@ PYTHON_MIN_VERSION="3.6"
 FLASK_PORT="5000"
 DOMAIN="localhost"
 
+# Version management
+VERSION_FILE="version.txt"
+if [ -f "$VERSION_FILE" ]; then
+    CURRENT_VERSION=$(cat "$VERSION_FILE")
+    # Increment the last number in the version
+    NEW_VERSION=$(echo "$CURRENT_VERSION" | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+    echo "$NEW_VERSION" > "$VERSION_FILE"
+    INSTALL_VERSION="$NEW_VERSION"
+else
+    echo "1.0.0" > "$VERSION_FILE"
+    INSTALL_VERSION="1.0.0"
+fi
+
 # Function to display status messages
 status_message() {
     echo "----------------------------------------"
@@ -317,11 +330,13 @@ fi
 
 status_message "Installation Summary"
 echo " Installation completed successfully!"
+echo " Version: $INSTALL_VERSION"
 echo
 echo "Application Details:"
 echo "- Web Interface: http://$DOMAIN"
 echo "- Command-line Tool: nohrtech-sigma"
 echo "- Installation Directory: $APP_DIR"
+echo "- Version: $INSTALL_VERSION"
 echo "- Log Files:"
 echo "  * Apache: /var/log/apache2/$APP_NAME-error.log"
 echo "  * Flask: $APP_DIR/logs/app.log"
