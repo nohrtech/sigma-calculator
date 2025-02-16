@@ -5,7 +5,7 @@ set -e
 
 # Configuration
 REPO_URL="https://github.com/nohrtech/sigma-calculator.git"
-BRANCH="setup"  # Using setup branch
+BRANCH="master"  # Using master branch
 APP_NAME="sigma-calculator"
 APP_DIR="/var/www/$APP_NAME"
 PYTHON_MIN_VERSION="3.6"
@@ -91,7 +91,7 @@ fi
 
 # Clone repository
 status_message "Cloning repository..."
-git clone -b "$BRANCH" "$REPO_URL" "$APP_DIR"
+git clone -b master https://github.com/nohrtech/sigma-calculator.git "$APP_DIR"
 check_status "Cloned repository"
 
 # Navigate to application directory
