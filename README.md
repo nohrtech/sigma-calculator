@@ -13,11 +13,15 @@ A professional GNSS position accuracy analysis tool by NohrTech.
 - Summary statistics including mean, min, max, and standard deviation
 - Advanced accuracy calculations:
   - Horizontal sigma: RMS of East and North components per epoch
-  - Vertical sigma: Direct Up component value per epoch
+  - Vertical sigma: RMS of Up component value per epoch
   - Individual epoch-by-epoch analysis for all components
   - Statistical analysis across all epochs
 - Open results in a new tab for better viewing and comparison
 - Process multiple files in separate tabs
+- Compare sigma results between two files:
+  - View individual statistics for each file
+  - Calculate absolute and percentage differences
+  - Color-coded comparison results for easy interpretation
 
 ## Supported File Formats
 
@@ -136,12 +140,81 @@ The application is set up to run under Apache with mod_wsgi. After installation:
 
 - Application files are in `/var/www/sigma-calculator`
 - Apache logs are in `/var/log/apache2/sigma-calculator-{error,access}.log`
-- To update the application:
-  ```bash
-  cd /var/www/sigma-calculator
-  sudo git pull
-  sudo systemctl restart apache2
-  ```
+
+### Updating the Application
+
+There are two ways to update the application:
+
+#### Option 1: Using the Update Script (Recommended)
+
+The update script provides an automated way to update the application with built-in safety features:
+- Creates a backup before updating
+- Checks Apache status after update
+- Monitors for errors
+- Provides rollback instructions
+
+To use the update script:
+
+1. Make the script executable:
+   ```bash
+   sudo chmod +x /var/www/sigma-calculator/update.sh
+   ```
+
+2. Run the script:
+   ```bash
+   sudo /var/www/sigma-calculator/update.sh
+   ```
+
+The script will:
+- Create a backup of the current installation
+- Pull the latest changes from Git
+- Update file permissions
+- Restart Apache
+- Check for any errors
+- Provide rollback instructions if needed
+
+#### Option 2: Manual Update
+
+If you prefer to update manually, follow these steps:
+
+1. Navigate to the application directory:
+   ```bash
+   cd /var/www/sigma-calculator
+   ```
+
+2. Pull the latest changes:
+   ```bash
+   sudo git pull origin master
+   ```
+
+3. Update file permissions:
+   ```bash
+   sudo chown -R www-data:www-data /var/www/sigma-calculator
+   sudo chmod -R 755 /var/www/sigma-calculator
+   ```
+
+4. Restart Apache to apply changes:
+   ```bash
+   sudo systemctl restart apache2
+   ```
+
+5. Check Apache status (optional):
+   ```bash
+   sudo systemctl status apache2
+   ```
+
+6. View logs for any errors (optional):
+   ```bash
+   sudo tail -f /var/log/apache2/sigma-calculator-error.log
+   ```
+
+Note: Using `wget` to update individual files is not recommended as it:
+- Doesn’t maintain proper version control
+- May miss dependencies
+- Could break file permissions
+- Doesn’t track changes properly
+
+Always use Git to update the entire application to ensure consistency.
 
 ## Usage
 
@@ -159,7 +232,16 @@ The application is set up to run under Apache with mod_wsgi. After installation:
    - Summary statistics for all components (Horizontal, Vertical, East, North, Up)
    - Process multiple files in succession, each opening in its own tab when the checkbox is selected
 
-4. Download a PDF report with the complete analysis
+4. Compare two files:
+   - Upload two files in the Compare tab
+   - View individual statistics for each file
+   - See color-coded differences between files:
+     - Green: < 5% difference
+     - Yellow: 5-10% difference
+     - Red: > 10% difference
+   - Optionally open comparison results in a new tab
+
+5. Download a PDF report with the complete analysis
 
 ## Notes
 - The application maintains the 10 most recent calculation results in memory
@@ -251,13 +333,13 @@ The calculator provides the following information for each supported file type:
 ### RINEX/SBF Files
 - Satellite-specific sigma values
 - Horizontal sigma (RMS of East and North components)
-- Vertical sigma (Direct Up component value per epoch)
+- Vertical sigma (RMS of Up component value per epoch)
 - Component-wise analysis (East, North, Up)
 
 ### XYZ Files
 - Epoch-by-epoch position accuracy
 - Horizontal sigma (RMS of East and North per epoch)
-- Vertical sigma (Direct Up component value per epoch)
+- Vertical sigma (RMS of Up component value per epoch)
 - Individual East, North, Up components
 - Summary statistics for all components
 
@@ -270,7 +352,23 @@ The horizontal sigma is calculated for each epoch as the Root Mean Square (RMS) 
 ```
 
 #### Vertical Sigma
-The vertical sigma is calculated as the direct Up component value per epoch.
+The vertical sigma is calculated using RMS in two steps:
+
+1. For each epoch, calculate the RMS of the Up component:
+```
+σ_V = √(σ_U²)
+```
+
+2. For overall vertical accuracy, calculate the RMS across all epochs:
+```
+σ_V_total = √(∑(σ_V²) / n)
+```
+where n is the number of epochs.
+
+The source of the Up component (σ_U) depends on the file type:
+- For SBF files: `sigma_up` value from PVTGeodetic blocks
+- For XYZ/LLH files: sU (Up standard deviation) value from each epoch
+- For RINEX files: Set to 1.5 times the nominal horizontal accuracy
 
 ## License
 

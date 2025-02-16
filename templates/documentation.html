@@ -111,13 +111,49 @@
 
                             <h6>Vertical Sigma</h6>
                             <p>
-                                The vertical sigma is taken directly from the Up component value for each epoch. This provides:
+                                The vertical sigma is calculated using RMS (Root Mean Square) in a two-step process:
                             </p>
+                            
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h6>Step 1: Per-Epoch RMS</h6>
+                                    <p>For each epoch, calculate the RMS of the Up component:</p>
+                                    <code>σ_V = √(σ_U²)</code>
+                                    
+                                    <h6 class="mt-3">Step 2: Overall RMS</h6>
+                                    <p>For overall vertical accuracy, calculate the RMS across all epochs:</p>
+                                    <code>σ_V_total = √(∑(σ_V²) / n)</code>
+                                    <p class="text-muted">where n is the number of epochs</p>
+                                </div>
+                            </div>
+
+                            <p>The source of the Up component (σ_U) varies by file type:</p>
                             <ul>
-                                <li>Individual vertical accuracy values per epoch</li>
-                                <li>True representation of vertical precision over time</li>
-                                <li>Ability to track vertical accuracy changes throughout the observation period</li>
+                                <li><strong>SBF Files:</strong>
+                                    <ul>
+                                        <li>Uses the <code>sigma_up</code> value from PVTGeodetic blocks</li>
+                                        <li>Values are converted from meters to millimeters for consistency</li>
+                                        <li>RMS is calculated for both per-epoch and overall accuracy</li>
+                                    </ul>
+                                </li>
+                                <li><strong>XYZ/LLH Files:</strong>
+                                    <ul>
+                                        <li>Uses the sU (Up standard deviation) value from each epoch</li>
+                                        <li>Values are taken from the receiver's output</li>
+                                        <li>RMS calculation provides both epoch-specific and overall accuracy</li>
+                                    </ul>
+                                </li>
+                                <li><strong>RINEX Files:</strong>
+                                    <ul>
+                                        <li>Base value is set to 1.5 times the nominal horizontal accuracy</li>
+                                        <li>This accounts for typically lower vertical precision in GNSS measurements</li>
+                                        <li>RMS calculations are applied to these adjusted values</li>
+                                    </ul>
+                                </li>
                             </ul>
+                            <p class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> Note: Both horizontal and vertical sigma use RMS calculations to provide statistically sound accuracy measures.
+                            </p>
 
                             <h6>Summary Statistics</h6>
                             <p>
@@ -165,6 +201,44 @@
                                     </ul>
                                 </li>
                             </ul>
+                        </div>
+                    </div>
+
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">File Comparison</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6>Comparison Features</h6>
+                            <p>
+                                The calculator allows you to compare sigma results between two files, providing:
+                            </p>
+                            <ul>
+                                <li>Individual statistics for each file:
+                                    <ul>
+                                        <li>Mean values</li>
+                                        <li>RMS values</li>
+                                        <li>Maximum values</li>
+                                        <li>Standard deviations</li>
+                                    </ul>
+                                </li>
+                                <li>Comparison metrics:
+                                    <ul>
+                                        <li>Absolute differences between files</li>
+                                        <li>Percentage differences</li>
+                                        <li>Color-coded results for easy interpretation:
+                                            <ul>
+                                                <li class="text-success">Green: Less than 5% difference</li>
+                                                <li class="text-warning">Yellow: 5-10% difference</li>
+                                                <li class="text-danger">Red: More than 10% difference</li>
+                                            </ul>
+                                        </li>
+                                    </ul>
+                                </li>
+                            </ul>
+                            <p>
+                                Comparisons can be viewed in the main window or opened in a new tab for detailed analysis.
+                            </p>
                         </div>
                     </div>
                 </div>
