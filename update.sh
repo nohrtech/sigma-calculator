@@ -14,6 +14,8 @@ APP_DIR="/var/www/sigma-calculator"
 APACHE_ERROR_LOG="/var/log/apache2/sigma-calculator-error.log"
 BACKUP_DIR="/var/www/sigma-calculator-backup"
 REPO_URL="https://github.com/nohrtech/sigma-calculator.git"
+BRANCH="main"  # Changed from master to main
+PYTHON_MIN_VERSION="3.6"
 
 # Function to display status messages
 status_message() {
@@ -31,6 +33,15 @@ check_status() {
         exit 1
     fi
 }
+
+# Check Python version
+status_message "Checking Python version..."
+python_version=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+if [ "$(printf '%s\n' "$PYTHON_MIN_VERSION" "$python_version" | sort -V | head -n1)" != "$PYTHON_MIN_VERSION" ]; then
+    echo "✗ Error: Python $PYTHON_MIN_VERSION or higher is required (found $python_version)"
+    exit 1
+fi
+check_status "Python version check passed"
 
 # Create backup
 status_message "Creating backup..."
@@ -55,9 +66,9 @@ if [ ! -d ".git" ]; then
     git remote add origin "$REPO_URL"
     check_status "Added remote repository"
     
-    # Set branch to main/master
-    git checkout -b master
-    check_status "Created master branch"
+    # Set branch to main
+    git checkout -b "$BRANCH"
+    check_status "Created $BRANCH branch"
 fi
 
 # Check if remote exists, add if not
@@ -68,13 +79,13 @@ fi
 
 # Reset any local changes and update remote
 status_message "Resetting local changes..."
-git fetch origin master
-git reset --hard origin/master
+git fetch origin "$BRANCH"
+git reset --hard "origin/$BRANCH"
 check_status "Reset to remote version"
 
 # Fetch latest changes
 status_message "Fetching latest changes..."
-git fetch origin master
+git fetch origin "$BRANCH"
 check_status "Fetched latest changes"
 
 # Get current version
@@ -82,7 +93,7 @@ current_version=$(git rev-parse HEAD)
 echo "Current version: $current_version"
 
 # Get latest version
-latest_version=$(git rev-parse origin/master)
+latest_version=$(git rev-parse "origin/$BRANCH")
 echo "Latest version: $latest_version"
 
 if [ "$current_version" == "$latest_version" ]; then
@@ -92,14 +103,32 @@ fi
 
 # Pull latest changes
 status_message "Pulling latest changes..."
-git pull origin master
+git pull origin "$BRANCH"
 check_status "Pulled latest changes"
+
+# Install/Update Python dependencies
+status_message "Updating Python dependencies..."
+if [ -f "requirements.txt" ]; then
+    python3 -m pip install -r requirements.txt --upgrade
+    check_status "Updated Python dependencies"
+else
+    echo "! Warning: requirements.txt not found"
+fi
 
 # Update permissions
 status_message "Updating file permissions..."
 chown -R www-data:www-data "$APP_DIR"
 chmod -R 755 "$APP_DIR"
+chmod +x "$APP_DIR/nohrtech_sigma.py"  # Make main script executable
 check_status "Updated file permissions"
+
+# Verify script functionality
+status_message "Verifying script functionality..."
+if ! python3 "$APP_DIR/nohrtech_sigma.py" --help >/dev/null 2>&1; then
+    echo "✗ Error: Script verification failed"
+    exit 1
+fi
+check_status "Script verification passed"
 
 # Restart Apache
 status_message "Restarting Apache..."
