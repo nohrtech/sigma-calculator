@@ -60,9 +60,12 @@ apt-get install -y \
     apache2-dev \
     apache2-utils \
     build-essential \
-    libapache2-mod-proxy-html \
     libxml2-dev
 check_status "Installed Apache and development packages"
+
+# Enable necessary Apache modules
+a2enmod proxy_html
+a2enmod proxy_http
 
 # Install Python and other dependencies
 status_message "Installing Python and other dependencies..."
@@ -176,7 +179,6 @@ check_status "Created symbolic link"
 # Enable Apache modules and configure
 status_message "Configuring Apache..."
 a2enmod proxy
-a2enmod proxy_http
 a2enmod proxy_balancer
 a2enmod lbmethod_byrequests
 a2ensite "$APP_NAME"
