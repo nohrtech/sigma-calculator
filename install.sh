@@ -119,6 +119,10 @@ mkdir -p "$APP_DIR/data"  # For storing uploaded files
 chmod 755 instance logs "$APP_DIR/data"
 check_status "Created application directories"
 
+# Create log directory
+mkdir -p "$APP_DIR/logs"
+chown www-data:www-data "$APP_DIR/logs"
+
 # Create systemd service file for Flask
 status_message "Creating systemd service..."
 cat > "/etc/systemd/system/$APP_NAME.service" << EOL
@@ -134,19 +138,46 @@ Environment="PATH=$APP_DIR/venv/bin"
 Environment="PYTHONPATH=$APP_DIR"
 Environment="FLASK_APP=app.py"
 Environment="FLASK_ENV=production"
-ExecStart=$APP_DIR/venv/bin/gunicorn --workers 3 --bind unix:$APP_DIR/$APP_NAME.sock -m 007 wsgi:app
+Environment="GUNICORN_ERROR_LOGFILE=$APP_DIR/logs/gunicorn-error.log"
+Environment="GUNICORN_ACCESS_LOGFILE=$APP_DIR/logs/gunicorn-access.log"
+ExecStart=$APP_DIR/venv/bin/gunicorn \
+    --workers 3 \
+    --bind unix:$APP_DIR/$APP_NAME.sock \
+    --error-logfile $APP_DIR/logs/gunicorn-error.log \
+    --access-logfile $APP_DIR/logs/gunicorn-access.log \
+    --capture-output \
+    --log-level debug \
+    wsgi:app
 Restart=always
 RestartSec=5
+StandardOutput=append:$APP_DIR/logs/service-output.log
+StandardError=append:$APP_DIR/logs/service-error.log
 
 [Install]
 WantedBy=multi-user.target
 EOL
 check_status "Created systemd service"
 
-# Create WSGI file
+# Create WSGI file with error handling
 status_message "Creating WSGI file..."
 cat > "$APP_DIR/wsgi.py" << EOL
-from app import app
+import sys
+import logging
+
+# Set up logging
+logging.basicConfig(
+    filename='logs/app.log',
+    level=logging.DEBUG,
+    format='%(asctime)s %(levelname)s: %(message)s'
+)
+
+try:
+    from app import app
+    logging.info("Successfully imported app")
+except Exception as e:
+    logging.error(f"Failed to import app: {str(e)}")
+    logging.error(f"Python path: {sys.path}")
+    raise
 
 if __name__ == "__main__":
     app.run()
@@ -154,6 +185,8 @@ EOL
 check_status "Created WSGI file"
 
 # Set correct permissions
+chown -R www-data:www-data "$APP_DIR/logs"
+chmod -R 755 "$APP_DIR/logs"
 chown www-data:www-data "$APP_DIR/wsgi.py"
 chmod 644 "$APP_DIR/wsgi.py"
 
@@ -215,10 +248,20 @@ systemctl daemon-reload
 sleep 2  # Give systemd time to process the new configuration
 systemctl stop $APP_NAME || true  # Stop if running
 sleep 2  # Wait for service to stop completely
+
+# Clear old logs
+rm -f "$APP_DIR/logs/"*.log
+
 systemctl start $APP_NAME || {
     echo "Failed to start Flask service. Checking logs..."
-    journalctl -u $APP_NAME --no-pager -n 50
+    echo "=== Service Status ==="
     systemctl status $APP_NAME
+    echo "=== Gunicorn Error Log ==="
+    cat "$APP_DIR/logs/gunicorn-error.log" 2>/dev/null || echo "No gunicorn error log found"
+    echo "=== Service Error Log ==="
+    cat "$APP_DIR/logs/service-error.log" 2>/dev/null || echo "No service error log found"
+    echo "=== Application Log ==="
+    cat "$APP_DIR/logs/app.log" 2>/dev/null || echo "No application log found"
     exit 1
 }
 systemctl enable $APP_NAME
