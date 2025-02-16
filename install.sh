@@ -189,12 +189,13 @@ cat > "/etc/apache2/sites-available/$APP_NAME.conf" << EOL
     ProxyRequests Off
     ProxyPreserveHost On
     
-    ProxyPass / unix:$APP_DIR/$APP_NAME.sock|http://localhost/
-    ProxyPassReverse / unix:$APP_DIR/$APP_NAME.sock|http://localhost/
-
-    <Proxy *>
+    <Proxy "unix:$APP_DIR/$APP_NAME.sock|http://localhost/">
+        ProxySet connectiontimeout=75 timeout=300
         Require all granted
     </Proxy>
+
+    ProxyPass / "unix:$APP_DIR/$APP_NAME.sock|http://localhost/"
+    ProxyPassReverse / "unix:$APP_DIR/$APP_NAME.sock|http://localhost/"
 </VirtualHost>
 EOL
 check_status "Created Apache configuration"
@@ -206,6 +207,7 @@ a2enmod proxy_http
 a2enmod proxy_uwsgi
 a2enmod proxy_balancer
 a2enmod lbmethod_byrequests
+a2enmod unix2_module || true
 
 # Disable default site and enable our site
 a2dissite 000-default
@@ -216,17 +218,6 @@ apache2ctl configtest || {
     echo "Apache configuration test failed"
     exit 1
 }
-
-# Restart Apache
-systemctl restart apache2
-sleep 2  # Give Apache time to restart
-
-# Check Apache status
-if ! systemctl is-active --quiet apache2; then
-    echo "Error: Apache failed to restart. Checking logs..."
-    cat "/var/log/apache2/$APP_NAME-error.log"
-    exit 1
-fi
 
 # Create systemd service file for Flask
 status_message "Creating systemd service..."
@@ -245,6 +236,7 @@ Environment="FLASK_APP=app.py"
 Environment="FLASK_ENV=production"
 Environment="GUNICORN_ERROR_LOGFILE=$APP_DIR/logs/gunicorn-error.log"
 Environment="GUNICORN_ACCESS_LOGFILE=$APP_DIR/logs/gunicorn-access.log"
+ExecStartPre=/bin/rm -f $APP_DIR/$APP_NAME.sock
 ExecStart=$APP_DIR/venv/bin/gunicorn \
     --workers 3 \
     --bind unix:$APP_DIR/$APP_NAME.sock \
@@ -263,30 +255,20 @@ StandardError=append:$APP_DIR/logs/service-error.log
 [Install]
 WantedBy=multi-user.target
 EOL
-check_status "Created systemd service"
 
-# Set up permissions
-status_message "Setting up permissions..."
-chown -R www-data:www-data "$APP_DIR"
-chmod -R 755 "$APP_DIR"
-chmod +x "$APP_DIR/nohrtech_sigma.py"
-check_status "Set up permissions"
+# Set permissions for socket directory
+mkdir -p "$APP_DIR"
+chown www-data:www-data "$APP_DIR"
+chmod 755 "$APP_DIR"
 
-# Create symbolic link for command-line tool
-status_message "Creating symbolic link..."
-ln -sf "$APP_DIR/nohrtech_sigma.py" /usr/local/bin/nohrtech-sigma
-check_status "Created symbolic link"
-
-# Start and enable Flask service
-status_message "Starting Flask service..."
+# Restart services
+status_message "Restarting services..."
 systemctl daemon-reload
-sleep 2  # Give systemd time to process the new configuration
-systemctl stop $APP_NAME || true  # Stop if running
-sleep 2  # Wait for service to stop completely
+systemctl stop apache2 || true
+systemctl stop $APP_NAME || true
+sleep 2
 
-# Clear old logs
-rm -f "$APP_DIR/logs/"*.log
-
+# Start Flask service first
 systemctl start $APP_NAME || {
     echo "Failed to start Flask service. Checking logs..."
     echo "=== Service Status ==="
@@ -299,34 +281,57 @@ systemctl start $APP_NAME || {
     cat "$APP_DIR/logs/app.log" 2>/dev/null || echo "No application log found"
     exit 1
 }
-systemctl enable $APP_NAME
-check_status "Started Flask service"
 
-# Verify services and socket file
-status_message "Verifying services..."
+# Wait for socket file to be created
+echo "Waiting for socket file..."
+for i in {1..10}; do
+    if [ -S "$APP_DIR/$APP_NAME.sock" ]; then
+        echo "Socket file created"
+        break
+    fi
+    echo "Waiting... ($i/10)"
+    sleep 1
+done
+
+# Verify socket file
+if [ ! -S "$APP_DIR/$APP_NAME.sock" ]; then
+    echo "Error: Socket file not created"
+    systemctl status $APP_NAME
+    exit 1
+fi
+
+# Set socket permissions
+chown www-data:www-data "$APP_DIR/$APP_NAME.sock"
+chmod 660 "$APP_DIR/$APP_NAME.sock"
+
+# Start Apache
+systemctl start apache2 || {
+    echo "Failed to start Apache. Checking logs..."
+    cat "/var/log/apache2/$APP_NAME-error.log"
+    exit 1
+}
+
+# Verify services are running
+echo "Verifying services..."
+if ! systemctl is-active --quiet $APP_NAME; then
+    echo "Error: Flask service is not running"
+    systemctl status $APP_NAME
+    exit 1
+fi
+
 if ! systemctl is-active --quiet apache2; then
-    echo " Error: Apache is not running"
+    echo "Error: Apache is not running"
     systemctl status apache2
     exit 1
 fi
 
-# Check Flask service status with detailed output
-if ! systemctl is-active --quiet $APP_NAME; then
-    echo " Error: Flask service is not running"
-    echo "Checking service status..."
-    systemctl status $APP_NAME
-    echo "Checking if socket file exists..."
-    if [ ! -S "$APP_DIR/$APP_NAME.sock" ]; then
-        echo " Error: Socket file not found at $APP_DIR/$APP_NAME.sock"
-    fi
+# Test connection
+echo "Testing connection..."
+curl -v --unix-socket "$APP_DIR/$APP_NAME.sock" http://localhost/ || {
+    echo "Error: Could not connect to socket"
+    ls -l "$APP_DIR/$APP_NAME.sock"
     exit 1
-fi
-
-# Verify socket file permissions
-if [ -S "$APP_DIR/$APP_NAME.sock" ]; then
-    chmod 660 "$APP_DIR/$APP_NAME.sock"
-    chown www-data:www-data "$APP_DIR/$APP_NAME.sock"
-fi
+}
 
 status_message "Installation Summary"
 echo " Installation completed successfully!"
