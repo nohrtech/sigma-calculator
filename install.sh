@@ -298,6 +298,25 @@ if __name__ == '__main__':
     app.run()
 EOL
 
+# Function to check if port is in use
+check_port() {
+    local port=$1
+    if lsof -i:$port > /dev/null 2>&1; then
+        echo "Port $port is already in use"
+        echo "Checking processes using port $port:"
+        lsof -i:$port
+        return 1
+    fi
+    return 0
+}
+
+# Function to kill processes using a port
+kill_port_processes() {
+    local port=$1
+    echo "Killing processes using port $port..."
+    lsof -ti:$port | xargs kill -9 2>/dev/null || true
+}
+
 # Set up directories and permissions
 status_message "Setting up directories..."
 mkdir -p "$APP_DIR/logs"
@@ -311,6 +330,17 @@ cd "$APP_DIR"
 source "venv/bin/activate"
 pip install --upgrade pip
 pip install --no-cache-dir flask gunicorn
+
+# Clean up any existing processes
+status_message "Cleaning up existing processes..."
+kill_port_processes 8000
+sleep 2
+
+# Check if port is available
+if ! check_port 8000; then
+    echo "Failed to free up port 8000"
+    exit 1
+fi
 
 # Test gunicorn directly
 status_message "Testing gunicorn directly..."
@@ -329,19 +359,27 @@ GUNICORN_PID=$!
 sleep 5
 
 # Test the direct connection
-curl -v http://127.0.0.1:8000/ || {
+curl -s http://127.0.0.1:8000/ || {
     echo "Direct gunicorn test failed. Checking logs..."
     echo "=== Gunicorn Error Log ==="
     cat "$APP_DIR/logs/gunicorn-error.log"
     echo "=== App Log ==="
     cat "$APP_DIR/logs/app.log"
-    kill $GUNICORN_PID
+    kill -9 $GUNICORN_PID 2>/dev/null || true
     exit 1
 }
 
-# Kill test process
-kill $GUNICORN_PID
+# Kill test process and ensure it's gone
+echo "Cleaning up test process..."
+kill -9 $GUNICORN_PID 2>/dev/null || true
+kill_port_processes 8000
 sleep 2
+
+# Verify port is free
+if ! check_port 8000; then
+    echo "Failed to free up port 8000 after test"
+    exit 1
+fi
 
 # Restart services
 status_message "Restarting services..."
@@ -353,7 +391,7 @@ sleep 2
 # Start and verify Flask service
 echo "Starting Flask service..."
 systemctl start $APP_NAME
-sleep 2
+sleep 5
 
 # Show detailed status and logs
 echo "=== Systemd Service Status ==="
