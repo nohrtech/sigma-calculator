@@ -10,11 +10,11 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Configuration
-APP_DIR="/var/www/sigma-calculator"
-APACHE_ERROR_LOG="/var/log/apache2/sigma-calculator-error.log"
-BACKUP_DIR="/var/www/sigma-calculator-backup"
+APP_NAME="sigma-calculator"
+APP_DIR="/var/www/$APP_NAME"
+BACKUP_DIR="/var/www/$APP_NAME-backup"
 REPO_URL="https://github.com/nohrtech/sigma-calculator.git"
-BRANCH="main"  # Changed from master to main
+BRANCH="setup"  # Using setup branch
 PYTHON_MIN_VERSION="3.6"
 
 # Function to display status messages
@@ -66,7 +66,7 @@ if [ ! -d ".git" ]; then
     git remote add origin "$REPO_URL"
     check_status "Added remote repository"
     
-    # Set branch to main
+    # Set branch to setup
     git checkout -b "$BRANCH"
     check_status "Created $BRANCH branch"
 fi
@@ -101,70 +101,57 @@ if [ "$current_version" == "$latest_version" ]; then
     exit 0
 fi
 
-# Pull latest changes
-status_message "Pulling latest changes..."
+# Update to latest version
+status_message "Updating to latest version..."
 git pull origin "$BRANCH"
-check_status "Pulled latest changes"
+check_status "Updated to latest version"
 
-# Install/Update Python dependencies
+# Update Python dependencies
 status_message "Updating Python dependencies..."
-if [ -f "requirements.txt" ]; then
-    python3 -m pip install -r requirements.txt --upgrade
-    check_status "Updated Python dependencies"
-else
-    echo "! Warning: requirements.txt not found"
-fi
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt --upgrade
+check_status "Updated Python dependencies"
 
 # Update permissions
-status_message "Updating file permissions..."
+status_message "Updating permissions..."
 chown -R www-data:www-data "$APP_DIR"
 chmod -R 755 "$APP_DIR"
-chmod +x "$APP_DIR/nohrtech_sigma.py"  # Make main script executable
-check_status "Updated file permissions"
+chmod +x "$APP_DIR/nohrtech_sigma.py"
+check_status "Updated permissions"
 
-# Verify script functionality
-status_message "Verifying script functionality..."
-if ! python3 "$APP_DIR/nohrtech_sigma.py" --help >/dev/null 2>&1; then
-    echo "✗ Error: Script verification failed"
-    exit 1
-fi
-check_status "Script verification passed"
-
-# Restart Apache
-status_message "Restarting Apache..."
+# Restart services
+status_message "Restarting services..."
+systemctl restart $APP_NAME
 systemctl restart apache2
-check_status "Restarted Apache"
+check_status "Restarted services"
 
-# Check Apache status
-status_message "Checking Apache status..."
-apache_status=$(systemctl is-active apache2)
-if [ "$apache_status" = "active" ]; then
-    echo "✓ Apache is running"
-else
-    echo "✗ Warning: Apache is not running!"
-    systemctl status apache2
+# Verify services
+status_message "Verifying services..."
+if ! systemctl is-active --quiet apache2; then
+    echo "✗ Error: Apache is not running"
     exit 1
 fi
-
-# Check for errors in log
-status_message "Checking error log..."
-if [ -f "$APACHE_ERROR_LOG" ]; then
-    errors=$(tail -n 50 "$APACHE_ERROR_LOG" | grep -i "error\|exception" || true)
-    if [ ! -z "$errors" ]; then
-        echo "⚠ Warning: Found errors in log:"
-        echo "$errors"
-    else
-        echo "✓ No recent errors found in log"
-    fi
-else
-    echo "! Warning: Error log file not found"
+if ! systemctl is-active --quiet $APP_NAME; then
+    echo "✗ Error: Flask service is not running"
+    exit 1
 fi
+check_status "Services verified"
 
-# Print summary
 status_message "Update Summary"
-echo "Previous version: $current_version"
-echo "Current version:  $(git rev-parse HEAD)"
-echo "Backup location:  $backup_path"
-echo
 echo "✓ Update completed successfully!"
-echo "To rollback, run: cp -r $backup_path/* $APP_DIR/ && systemctl restart apache2"
+echo
+echo "Updated from version: ${current_version:0:7}"
+echo "           to version: ${latest_version:0:7}"
+echo
+echo "Services Status:"
+echo "- Apache: Running"
+echo "- Flask: Running"
+echo
+echo "Backup Location:"
+echo "$backup_path"
+echo
+echo "To verify the update:"
+echo "1. Check web interface: http://localhost"
+echo "2. Test command-line: nohrtech-sigma --help"
+echo "3. View logs: tail -f /var/log/apache2/$APP_NAME-error.log"

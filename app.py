@@ -298,28 +298,26 @@ def cleanup_old_files():
 
     logger.info("File cleanup completed")
 
-@app.before_first_request
-def initialize_app():
-    """Initialize the application before the first request."""
-    # Create necessary directories
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
-    os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'pdf_reports'), exist_ok=True)
-    
-    # Run initial cleanup
-    cleanup_old_files()
-
 def schedule_cleanup():
     """Schedule periodic cleanup of old files."""
     while True:
         time.sleep(3600)  # Run every hour
         cleanup_old_files()
 
-# Start cleanup thread when running in production
-if not app.debug:
-    cleanup_thread = threading.Thread(target=schedule_cleanup, daemon=True)
-    cleanup_thread.start()
+def initialize_app():
+    """Initialize the application."""
+    # Create required directories
+    os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    
+    # Start cleanup thread in production
+    if not app.debug:
+        cleanup_thread = threading.Thread(target=schedule_cleanup, daemon=True)
+        cleanup_thread.start()
+
+# Use with_app_context for initialization
+with app.app_context():
+    initialize_app()
 
 if __name__ == '__main__':
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    app.run(debug=True)
+    app.run(debug=True, port=5000)
