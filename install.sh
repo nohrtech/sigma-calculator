@@ -126,41 +126,6 @@ check_status "Created application directories"
 mkdir -p "$APP_DIR/logs"
 chown www-data:www-data "$APP_DIR/logs"
 
-# Create systemd service file for Flask
-status_message "Creating systemd service..."
-cat > "/etc/systemd/system/$APP_NAME.service" << EOL
-[Unit]
-Description=NohrTech Sigma Calculator Flask App
-After=network.target
-
-[Service]
-User=www-data
-Group=www-data
-WorkingDirectory=$APP_DIR
-Environment="PATH=$APP_DIR/venv/bin"
-Environment="PYTHONPATH=$APP_DIR"
-Environment="FLASK_APP=app.py"
-Environment="FLASK_ENV=production"
-Environment="GUNICORN_ERROR_LOGFILE=$APP_DIR/logs/gunicorn-error.log"
-Environment="GUNICORN_ACCESS_LOGFILE=$APP_DIR/logs/gunicorn-access.log"
-ExecStart=$APP_DIR/venv/bin/gunicorn \
-    --workers 3 \
-    --bind unix:$APP_DIR/$APP_NAME.sock \
-    --error-logfile $APP_DIR/logs/gunicorn-error.log \
-    --access-logfile $APP_DIR/logs/gunicorn-access.log \
-    --capture-output \
-    --log-level debug \
-    wsgi:app
-Restart=always
-RestartSec=5
-StandardOutput=append:$APP_DIR/logs/service-output.log
-StandardError=append:$APP_DIR/logs/service-error.log
-
-[Install]
-WantedBy=multi-user.target
-EOL
-check_status "Created systemd service"
-
 # Create WSGI file with error handling
 status_message "Creating WSGI file..."
 cat > "$APP_DIR/wsgi.py" << EOL
@@ -204,24 +169,84 @@ cat > "/etc/apache2/sites-available/$APP_NAME.conf" << EOL
     ErrorLog \${APACHE_LOG_DIR}/$APP_NAME-error.log
     CustomLog \${APACHE_LOG_DIR}/$APP_NAME-access.log combined
 
-    ProxyPreserveHost On
-    ProxyPass / unix:$APP_DIR/$APP_NAME.sock|http://127.0.0.1/
-    ProxyPassReverse / unix:$APP_DIR/$APP_NAME.sock|http://127.0.0.1/
-
     <Directory $APP_DIR>
-        Options FollowSymLinks
-        AllowOverride None
         Require all granted
     </Directory>
 
-    <Directory $APP_DIR/static>
-        Options FollowSymLinks
-        AllowOverride None
+    ProxyPreserveHost On
+    ProxyPass / http://unix:$APP_DIR/$APP_NAME.sock|http://127.0.0.1/
+    ProxyPassReverse / http://unix:$APP_DIR/$APP_NAME.sock|http://127.0.0.1/
+
+    <Location />
         Require all granted
-    </Directory>
+    </Location>
 </VirtualHost>
 EOL
 check_status "Created Apache configuration"
+
+# Enable required Apache modules
+status_message "Configuring Apache..."
+a2enmod proxy
+a2enmod proxy_http
+a2enmod proxy_balancer
+a2enmod lbmethod_byrequests
+
+# Disable default site and enable our site
+a2dissite 000-default
+a2ensite "$APP_NAME"
+
+# Test Apache configuration
+apache2ctl configtest || {
+    echo "Apache configuration test failed"
+    exit 1
+}
+
+# Restart Apache
+systemctl restart apache2
+sleep 2  # Give Apache time to restart
+
+# Check Apache status
+if ! systemctl is-active --quiet apache2; then
+    echo "Error: Apache failed to restart. Checking logs..."
+    cat "/var/log/apache2/$APP_NAME-error.log"
+    exit 1
+fi
+
+# Create systemd service file for Flask
+status_message "Creating systemd service..."
+cat > "/etc/systemd/system/$APP_NAME.service" << EOL
+[Unit]
+Description=NohrTech Sigma Calculator Flask App
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=$APP_DIR
+Environment="PATH=$APP_DIR/venv/bin"
+Environment="PYTHONPATH=$APP_DIR"
+Environment="FLASK_APP=app.py"
+Environment="FLASK_ENV=production"
+Environment="GUNICORN_ERROR_LOGFILE=$APP_DIR/logs/gunicorn-error.log"
+Environment="GUNICORN_ACCESS_LOGFILE=$APP_DIR/logs/gunicorn-access.log"
+ExecStart=$APP_DIR/venv/bin/gunicorn \
+    --workers 3 \
+    --bind unix:$APP_DIR/$APP_NAME.sock \
+    --error-logfile $APP_DIR/logs/gunicorn-error.log \
+    --access-logfile $APP_DIR/logs/gunicorn-access.log \
+    --capture-output \
+    --log-level debug \
+    --timeout 120 \
+    wsgi:app
+Restart=always
+RestartSec=5
+StandardOutput=append:$APP_DIR/logs/service-output.log
+StandardError=append:$APP_DIR/logs/service-error.log
+
+[Install]
+WantedBy=multi-user.target
+EOL
+check_status "Created systemd service"
 
 # Set up permissions
 status_message "Setting up permissions..."
@@ -234,16 +259,6 @@ check_status "Set up permissions"
 status_message "Creating symbolic link..."
 ln -sf "$APP_DIR/nohrtech_sigma.py" /usr/local/bin/nohrtech-sigma
 check_status "Created symbolic link"
-
-# Enable Apache modules and configure
-status_message "Configuring Apache..."
-a2enmod proxy
-a2enmod proxy_balancer
-a2enmod lbmethod_byrequests
-a2ensite "$APP_NAME"
-a2dissite 000-default
-systemctl restart apache2
-check_status "Configured Apache"
 
 # Start and enable Flask service
 status_message "Starting Flask service..."
