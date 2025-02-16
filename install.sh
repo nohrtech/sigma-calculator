@@ -192,21 +192,40 @@ check_status "Configured Apache"
 
 # Start and enable Flask service
 status_message "Starting Flask service..."
-systemctl start $APP_NAME
+systemctl daemon-reload
+systemctl start $APP_NAME || {
+    echo "Failed to start Flask service. Checking logs..."
+    journalctl -u $APP_NAME --no-pager -n 50
+    exit 1
+}
 systemctl enable $APP_NAME
 check_status "Started Flask service"
 
-# Verify services
+# Verify services and socket file
 status_message "Verifying services..."
 if ! systemctl is-active --quiet apache2; then
     echo " Error: Apache is not running"
+    systemctl status apache2
     exit 1
 fi
+
+# Check Flask service status with detailed output
 if ! systemctl is-active --quiet $APP_NAME; then
     echo " Error: Flask service is not running"
+    echo "Checking service status..."
+    systemctl status $APP_NAME
+    echo "Checking if socket file exists..."
+    if [ ! -S "$APP_DIR/$APP_NAME.sock" ]; then
+        echo " Error: Socket file not found at $APP_DIR/$APP_NAME.sock"
+    fi
     exit 1
 fi
-check_status "Services verified"
+
+# Verify socket file permissions
+if [ -S "$APP_DIR/$APP_NAME.sock" ]; then
+    chmod 660 "$APP_DIR/$APP_NAME.sock"
+    chown www-data:www-data "$APP_DIR/$APP_NAME.sock"
+fi
 
 status_message "Installation Summary"
 echo " Installation completed successfully!"
